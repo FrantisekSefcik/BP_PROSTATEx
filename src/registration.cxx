@@ -1,54 +1,16 @@
-/*=========================================================================
-*
-*  Copyright Insight Software Consortium
-*
-*  Licensed under the Apache License, Version 2.0 (the "License");
-*  you may not use this file except in compliance with the License.
-*  You may obtain a copy of the License at
-*
-*         http://www.apache.org/licenses/LICENSE-2.0.txt
-*
-*  Unless required by applicable law or agreed to in writing, software
-*  distributed under the License is distributed on an "AS IS" BASIS,
-*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*  See the License for the specific language governing permissions and
-*  limitations under the License.
-*
-*=========================================================================*/
 
-//  Software Guide : BeginLatex
-//
-//  Probably the most common representation of datasets in clinical
-//  applications is the one that uses sets of DICOM slices in order to compose
-//  3-dimensional images. This is the case for CT, MRI and PET scanners. It is
-//  very common therefore for image analysts to have to process volumetric
-//  images stored in a set of DICOM files belonging to a
-//  common DICOM series.
-//
-//  The following example illustrates how to use ITK functionalities in order
-//  to read a DICOM series into a volume and then save this volume in another
-//  file format.
-//
-//  The example begins by including the appropriate headers. In particular we
-//  will need the \doxygen{GDCMImageIO} object in order to have access to the
-//  capabilities of the GDCM library for reading DICOM files, and the
-//  \doxygen{GDCMSeriesFileNames} object for generating the lists of filenames
-//  identifying the slices of a common volumetric dataset.
-//
-//  \index{itk::ImageSeriesReader!header}
-//  \index{itk::GDCMImageIO!header}
-//  \index{itk::GDCMSeriesFileNames!header}
-//  \index{itk::ImageFileWriter!header}
-//
-//  Software Guide : EndLatex
 
-// Software Guide : BeginCodeSnippet
+#include <stdio.h>
+
 #include "itkImage.h"
 #include "itkGDCMImageIO.h"
 #include "itkGDCMSeriesFileNames.h"
 #include "itkImageSeriesReader.h"
 #include "itkImageFileWriter.h"
 #include "itkExtractImageFilter.h"
+
+#include "itkResampleImageFilter.h"
+#include "itkAffineTransform.h"
 // Software Guide : EndCodeSnippet
 
 typedef signed short    PixelType;
@@ -138,177 +100,188 @@ ReaderType::Pointer readDicomSeri(char *fileName) {
 	}
 }
 
+
+
+
+
+
+
+
 int main(int argc, char* argv[])
 {
-
 	if (argc < 3)
 	{
 		std::cerr << "Usage: " << std::endl;
-		std::cerr << argv[0] << " DicomDirectory  outputFileName  xCoordinate yCoordinate sliceNumber size"
+		std::cerr << argv[0] << " DicomDirectory  outputFileName  xCoordinate yCoordinate sliceNumber degrees"
 			<< std::endl;
 		return EXIT_FAILURE;
 	}
-	try{
+	try {
 
 		// Software Guide : BeginCodeSnippet
 		typedef itk::ImageFileWriter< ImageType2D > WriterType;
 		WriterType::Pointer writer = WriterType::New();
 
 		writer->SetFileName(argv[2]);
-		
+
 		// nacitanie dicom serie
 		ReaderType::Pointer reader = ReaderType::New();
 		reader = readDicomSeri(argv[1]);
 
 
-		//FILTER/////////////////////////////////////////
+		//FILTER//////Extract one slice from DICOM series///////////////////////////////////
 		typedef itk::ExtractImageFilter< ImageType3D,
 			ImageType2D > FilterType;
 		FilterType::Pointer filter = FilterType::New();
 		filter->InPlaceOn();
 		filter->SetDirectionCollapseToSubmatrix();
-		// Software Guide : EndCodeSnippet
+		
 
-
-		//  Software Guide : BeginLatex
-		//
-		//  The ExtractImageFilter requires a region to be defined by the
-		//  user. The region is specified by an \doxygen{Index} indicating the
-		//  pixel where the region starts and an \doxygen{Size} indicating how many
-		//  pixels the region has along each dimension. In order to extract a $2D$
-		//  image from a $3D$ data set, it is enough to set the size of the region
-		//  to $0$ in one dimension.  This will indicate to
-		//  ExtractImageFilter that a dimensional reduction has been
-		//  specified. Here we take the region from the largest possible region of
-		//  the input image. Note that \code{UpdateOutputInformation()} is being
-		//  called first on the reader. This method updates the metadata in
-		//  the output image without actually reading in the bulk-data.
-		//
-		//  Software Guide : EndLatex
-
-
-		// Software Guide : BeginCodeSnippet
 		reader->UpdateOutputInformation();
 		ImageType3D::RegionType inputRegion =
 			reader->GetOutput()->GetLargestPossibleRegion();
-		// Software Guide : EndCodeSnippet
 
-
-		//  Software Guide : BeginLatex
-		//
-		//  We take the size from the region and collapse the size in the $Z$
-		//  component by setting its value to $0$. This will indicate to the
-		//  ExtractImageFilter that the output image should have a
-		//  dimension less than the input image.
-		//
-		//  Software Guide : EndLatex
-
-		// Software Guide : BeginCodeSnippet
-		const unsigned int regionSize = atoi(argv[6]);
 		ImageType3D::SizeType size = inputRegion.GetSize();
-		size[0] = regionSize;
-		size[1] = regionSize;
 		size[2] = 0;
-		// Software Guide : EndCodeSnippet
 
-		//  Software Guide : BeginLatex
-		//
-		//  Note that in this case we are extracting a $Z$ slice, and for that
-		//  reason, the dimension to be collapsed is the one with index $2$. You
-		//  may keep in mind the association of index components
-		//  $\{X=0,Y=1,Z=2\}$. If we were interested in extracting a slice
-		//  perpendicular to the $Y$ axis we would have set \code{size[1]=0;}.
-		//
-		//  Software Guide : EndLatex
-
-
-		//  Software Guide : BeginLatex
-		//
-		//  Then, we take the index from the region and set its $Z$ value to the
-		//  slice number we want to extract. In this example we obtain the slice
-		//  number from the command line arguments.
-		//
-		//  Software Guide : EndLatex
-
-		// Software Guide : BeginCodeSnippet
 		ImageType3D::IndexType start = inputRegion.GetIndex();
-		const unsigned int i = atoi(argv[3]);
-		const unsigned int j = atoi(argv[4]);
 		const unsigned int sliceNumber = atoi(argv[5]);
-		start[0] = i - regionSize / 2;
-		start[1] = j - regionSize / 2;
 		start[2] = sliceNumber;
-		// Software Guide : EndCodeSnippet
 
-
-		
-
-
-
-		//  Software Guide : BeginLatex
-		//
-		//  Finally, an \doxygen{ImageRegion} object is created and initialized with
-		//  the start and size we just prepared using the slice information.
-		//
-		//  Software Guide : EndLatex
-
-		// Software Guide : BeginCodeSnippet
 		ImageType3D::RegionType desiredRegion;
 		desiredRegion.SetSize(size);
 		desiredRegion.SetIndex(start);
-		// Software Guide : EndCodeSnippet
 
-
-		//  Software Guide : BeginLatex
-		//
-		//  Then the region is passed to the filter using the
-		//  \code{SetExtractionRegion()} method.
-		//
-		//  \index{itk::ExtractImageFilter!SetExtractionRegion()}
-		//
-		//  Software Guide : EndLatex
-
-
-		// Software Guide : BeginCodeSnippet
 		filter->SetExtractionRegion(desiredRegion);
-		// Software Guide : EndCodeSnippet
 
+		ImageType2D::Pointer image;
+		
+		filter->SetInput(reader->GetOutput());
+		////////////////////////////
 
-		//  Software Guide : BeginLatex
-		//
-		//  Below we connect the reader, filter and writer to form the data
-		//  processing pipeline.
-		//
-		//  Software Guide : EndLatex
+		////rotate image
 
-		// Software Guide : BeginCodeSnippet
-		ImageType3D::Pointer image;
-		image = reader->GetOutput();
-
-		const ImageType3D::IndexType LeftEyeIndex = { { i,j,sliceNumber } };
-		ImageType3D::PointType LeftEyePoint;
-		image->TransformIndexToPhysicalPoint(LeftEyeIndex, LeftEyePoint);
-		// Software Guide : EndCodeSnippet
-
-		std::cout << "===========================================" << std::endl;
-		std::cout << "The Left Eye Location is " << LeftEyePoint << std::endl;
-		for (int x = i - 3; x <= i + 3; x++) {
-			for (int y = j - 3; y <= j + 3; y++) {
-				const ImageType3D::IndexType LeftEyeIndex = { { x,j,sliceNumber } };
-				image->SetPixel(LeftEyeIndex, 0);
-				const ImageType3D::IndexType RightEyeIndex = { { i,y,sliceNumber } };
-				image->SetPixel(RightEyeIndex, 0);
-			}	
-		}
 		
 
-		const ImageType3D::DirectionType & ImageDirectionCosines = image->GetDirection();
+		typedef itk::ResampleImageFilter<
+			ImageType2D, ImageType2D >  FilterRotateType;
 
-		std::cout << "===========================================" << std::endl;
-		std::cout << "Direction " << ImageDirectionCosines[0] <<','<< ImageDirectionCosines[1]<< ',' << ImageDirectionCosines[2] << std::endl;
+		FilterRotateType::Pointer rotateFilter = FilterRotateType::New();
 
-		filter->SetInput(image);
-		writer->SetInput(filter->GetOutput());
+
+		
+		typedef itk::AffineTransform< double, Dimension2D >  TransformType;
+		TransformType::Pointer transform = TransformType::New();
+		// Software Guide : EndCodeSnippet
+
+
+		typedef itk::LinearInterpolateImageFunction<
+			ImageType2D, double >  InterpolatorType;
+		InterpolatorType::Pointer interpolator = InterpolatorType::New();
+
+		rotateFilter->SetInterpolator(interpolator);
+
+		rotateFilter->SetDefaultPixelValue(100);
+
+		filter->Update();
+		const ImageType2D * inputImage = filter->GetOutput();
+
+		const ImageType2D::SpacingType & spacing = inputImage->GetSpacing();
+		const ImageType2D::PointType & origin = inputImage->GetOrigin();
+		ImageType2D::SizeType size2 =
+			inputImage->GetLargestPossibleRegion().GetSize();
+
+		std::cout << "imageCenterX = " << size2[0]<< std::endl;
+		std::cout << "imageCenterY = " << size2[1] << std::endl;
+
+		rotateFilter->SetOutputOrigin(origin);
+		rotateFilter->SetOutputSpacing(spacing);
+		rotateFilter->SetOutputDirection(inputImage->GetDirection());
+		rotateFilter->SetSize(size2);
+		// Software Guide : EndCodeSnippet
+
+
+		rotateFilter->SetInput(filter->GetOutput());
+		
+
+
+		//  Software Guide : BeginLatex
+		//
+		//  Rotations are performed around the origin of physical coordinates---not
+		//  the image origin nor the image center. Hence, the process of
+		//  positioning the output image frame as it is shown in Figure
+		//  \ref{fig:ResampleImageFilterOutput10} requires three steps.  First, the
+		//  image origin must be moved to the origin of the coordinate system. This
+		//  is done by applying a translation equal to the negative values of the
+		//  image origin.
+		//
+		// \begin{figure}
+		// \center
+		// \includegraphics[width=0.44\textwidth]{BrainProtonDensitySliceBorder20}
+		// \includegraphics[width=0.44\textwidth]{ResampleImageFilterOutput10}
+		// \itkcaption[Effect of the Resample filter rotating an image]{Effect of the
+		// resample filter rotating an image.}
+		// \label{fig:ResampleImageFilterOutput10}
+		// \end{figure}
+		//
+		//
+		//  \index{itk::AffineTransform!Translate()}
+		//
+		//  Software Guide : EndLatex
+
+		// Software Guide : BeginCodeSnippet
+
+		
+
+
+		//TransformType::OutputVectorType translation1;
+		float i = atof(argv[3]);
+		float j = atof(argv[4]);
+		//const double imageCenterX = origin[0] + spacing[0] * (size2[0] - i);
+		//const double imageCenterY = origin[1] + spacing[1] * (size2[1] - j);
+
+		//translation1[0] = -imageCenterX;
+		//translation1[1] = -imageCenterY;
+
+		//transform->Translate(translation1);
+		// Software Guide : EndCodeSnippet
+
+		TransformType::InputPointType rotationCenter;
+		rotationCenter[0] = i;
+		rotationCenter[1] = j;
+		std::cerr << origin[0] << " origin " << origin[1] << ',' << std::endl;
+		std::cerr << spacing[0] << " origin " << spacing[1] << ',' << std::endl;
+		transform->SetCenter(rotationCenter);
+
+		std::cout << "imageCenterX = " << rotationCenter[0] << std::endl;
+		std::cout << "imageCenterY = " << rotationCenter[1] << std::endl;
+
+
+		const double angleInDegrees = atof(argv[6]);
+		// Software Guide : BeginCodeSnippet
+		const double degreesToRadians = std::atan(1.0) / 45.0;
+		const double angle = angleInDegrees * degreesToRadians;
+		transform->Rotate2D(angle);
+		// Software Guide : EndCodeSnippet
+
+
+		// Software Guide : BeginCodeSnippet
+		//TransformType::OutputVectorType translation2;
+		//translation2[0] = imageCenterX;
+		//translation2[1] = imageCenterY;
+		//transform->Translate(translation2, false);
+		rotateFilter->SetTransform(transform);
+		// Software Guide : EndCodeSnippet
+
+
+
+
+
+
+
+
+		////
+		writer->SetInput(rotateFilter->GetOutput());
 
 
 		// Software Guide : EndCodeSnippet
@@ -333,7 +306,5 @@ int main(int argc, char* argv[])
 		std::cout << ex << std::endl;
 		return EXIT_FAILURE;
 	}
-
-
 	return EXIT_SUCCESS;
 }
