@@ -8,6 +8,7 @@
 #include "itkImageSeriesReader.h"
 #include "itkImageFileWriter.h"
 #include "itkExtractImageFilter.h"
+#include "itkRegionOfInterestImageFilter.h"
 
 #include "itkResampleImageFilter.h"
 #include "itkAffineTransform.h"
@@ -103,10 +104,6 @@ ReaderType::Pointer readDicomSeri(char *fileName) {
 
 
 
-
-
-
-
 int main(int argc, char* argv[])
 {
 	if (argc < 3)
@@ -128,6 +125,20 @@ int main(int argc, char* argv[])
 		ReaderType::Pointer reader = ReaderType::New();
 		reader = readDicomSeri(argv[1]);
 
+		typedef itk::Image< signed short, 3 >         ImageTypeMY;
+
+		ImageType3D::Pointer imageMy = reader->GetOutput();
+		ImageType3D::IndexType pixelIndex;
+		ImageType3D::PointType pixelPoint;
+		pixelPoint[0] = 25.7457;
+		pixelPoint[1] = 31.8707;
+		pixelPoint[2] = -38.511;
+
+		imageMy->TransformPhysicalPointToIndex(pixelPoint, pixelIndex);
+
+		std::cout << "xindex = " << pixelIndex[0] << std::endl;
+		std::cout << "Yindex = " << pixelIndex[1] << std::endl;
+		std::cout << "zIndex = " << pixelIndex[2] << std::endl;
 
 		//FILTER//////Extract one slice from DICOM series///////////////////////////////////
 		typedef itk::ExtractImageFilter< ImageType3D,
@@ -135,7 +146,7 @@ int main(int argc, char* argv[])
 		FilterType::Pointer filter = FilterType::New();
 		filter->InPlaceOn();
 		filter->SetDirectionCollapseToSubmatrix();
-		
+
 
 		reader->UpdateOutputInformation();
 		ImageType3D::RegionType inputRegion =
@@ -155,13 +166,13 @@ int main(int argc, char* argv[])
 		filter->SetExtractionRegion(desiredRegion);
 
 		ImageType2D::Pointer image;
-		
+
 		filter->SetInput(reader->GetOutput());
 		////////////////////////////
 
 		////rotate image
 
-		
+
 
 		typedef itk::ResampleImageFilter<
 			ImageType2D, ImageType2D >  FilterRotateType;
@@ -169,7 +180,7 @@ int main(int argc, char* argv[])
 		FilterRotateType::Pointer rotateFilter = FilterRotateType::New();
 
 
-		
+
 		typedef itk::AffineTransform< double, Dimension2D >  TransformType;
 		TransformType::Pointer transform = TransformType::New();
 		// Software Guide : EndCodeSnippet
@@ -191,7 +202,7 @@ int main(int argc, char* argv[])
 		ImageType2D::SizeType size2 =
 			inputImage->GetLargestPossibleRegion().GetSize();
 
-		std::cout << "imageCenterX = " << size2[0]<< std::endl;
+		std::cout << "imageCenterX = " << size2[0] << std::endl;
 		std::cout << "imageCenterY = " << size2[1] << std::endl;
 
 		rotateFilter->SetOutputOrigin(origin);
@@ -202,7 +213,7 @@ int main(int argc, char* argv[])
 
 
 		rotateFilter->SetInput(filter->GetOutput());
-		
+
 
 
 		//  Software Guide : BeginLatex
@@ -231,7 +242,7 @@ int main(int argc, char* argv[])
 
 		// Software Guide : BeginCodeSnippet
 
-		
+
 
 
 		//TransformType::OutputVectorType translation1;
@@ -260,46 +271,110 @@ int main(int argc, char* argv[])
 		const double angleInDegrees = atof(argv[6]);
 		// Software Guide : BeginCodeSnippet
 		const double degreesToRadians = std::atan(1.0) / 45.0;
-		const double angle = angleInDegrees * degreesToRadians;
-		transform->Rotate2D(angle);
+		
+		// Software Guide : EndCodeSnippet
+
+
+
+
+
+
+
+
+		typedef itk::RegionOfInterestImageFilter< ImageType2D,
+			ImageType2D > FilterExtractType;
+
+		FilterExtractType::Pointer extractFilter = FilterExtractType::New();
+		// Software Guide : EndCodeSnippet
+
+
+		//  Software Guide : BeginLatex
+		//
+		//  The RegionOfInterestImageFilter requires a region to be
+		//  defined by the user. The region is specified by an \doxygen{Index}
+		//  indicating the pixel where the region starts and an \doxygen{Size}
+		//  indicating how many pixels the region has along each dimension. In this
+		//  example, the specification of the region is taken from the command line
+		//  arguments (this example assumes that a 2D image is being processed).
+		//
+		//  Software Guide : EndLatex
+
+		int a = (i - origin[0]) / spacing[0];
+		int b = (j - origin[1]) / spacing[1];
+
+
+		std::cout << "CenterX = " << a << std::endl;
+		std::cout << "CenterY = " << b << std::endl;
+		// Software Guide : BeginCodeSnippet
+		ImageType2D::IndexType start3;
+		start3[0] = a - 40;
+		start3[1] = b - 40;
 		// Software Guide : EndCodeSnippet
 
 
 		// Software Guide : BeginCodeSnippet
-		//TransformType::OutputVectorType translation2;
-		//translation2[0] = imageCenterX;
-		//translation2[1] = imageCenterY;
-		//transform->Translate(translation2, false);
-		rotateFilter->SetTransform(transform);
+		ImageType2D::SizeType size3;
+		size3[0] = 80;
+		size3[1] = 80;
 		// Software Guide : EndCodeSnippet
 
 
 
 
-
-
-
-
-		////
-		writer->SetInput(rotateFilter->GetOutput());
-
-
+		// Software Guide : BeginCodeSnippet
+		ImageType2D::RegionType desiredRegionB;
+		desiredRegionB.SetSize(size3);
+		desiredRegionB.SetIndex(start3);
 		// Software Guide : EndCodeSnippet
 
-		std::cout << "Writing the image as " << std::endl << std::endl;
-		std::cout << argv[2] << std::endl << std::endl;
 
-		try
-		{
-			// Software Guide : BeginCodeSnippet
-			writer->Update();
+
+
+		// Software Guide : BeginCodeSnippet
+		extractFilter->SetRegionOfInterest(desiredRegionB);
+		// Software Guide : EndCodeSnippet
+
+
+		for (int i = 1; i < 3; i++) {
+
+			const double angle = angleInDegrees * degreesToRadians * i;
+			transform->Rotate2D(angle);
 			// Software Guide : EndCodeSnippet
+
+
+			// Software Guide : BeginCodeSnippet
+			//TransformType::OutputVectorType translation2;
+			//translation2[0] = imageCenterX;
+			//translation2[1] = imageCenterY;
+			//transform->Translate(translation2, false);
+			rotateFilter->SetTransform(transform);
+
+			extractFilter->SetInput(rotateFilter->GetOutput());
+
+
+			writer->SetInput(extractFilter->GetOutput());
+
+
+			// Software Guide : EndCodeSnippet
+
+			std::cout << "Writing the image as " << std::endl << std::endl;
+			std::cout << argv[2] << std::endl << std::endl;
+
+			try
+			{
+				// Software Guide : BeginCodeSnippet
+				writer->Update();
+				// Software Guide : EndCodeSnippet
+			}
+			catch (itk::ExceptionObject &ex)
+			{
+				std::cout << ex << std::endl;
+				return EXIT_FAILURE;
+			}
+		
 		}
-		catch (itk::ExceptionObject &ex)
-		{
-			std::cout << ex << std::endl;
-			return EXIT_FAILURE;
-		}
+
+		
 	}
 	catch (itk::ExceptionObject &ex)
 	{
