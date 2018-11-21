@@ -1,5 +1,6 @@
 bin/
 src/CMakeFiles
+data/
 
 # IPython notebook
 .ipynb_checkpoints
