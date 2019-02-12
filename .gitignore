@@ -1,6 +1,8 @@
 bin/
 src/CMakeFiles
 data/
+latex/
 
 # IPython notebook
 .ipynb_checkpoints
+__pycache__
