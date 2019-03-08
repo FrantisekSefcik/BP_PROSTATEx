@@ -1,8 +1,12 @@
 from __future__ import generators, division, absolute_import, with_statement, print_function, unicode_literals
 from scipy.spatial.distance import cdist
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd 
+import SimpleITK as sitk
+from functools import reduce
 
 class Dataset(object):
     images_train = np.array([])
@@ -114,7 +118,55 @@ class Dataset(object):
         self.updated = True
         
         
+class DataLoader(object):
+    
+    def __init__(self,path_to_data = '.', subdirs_paths = []):
+        self.path_to_data = path_to_data
+        self.subdirs = set(subdirs_paths)
+        self.images_array  = {}
+        self.labels_array  = {}
+        self.df_info = {}
         
+    def load_data(self,subdirs_paths = None):
         
+        if subdirs_paths:
+            self.subdirs = self.subdirs.union(subdirs_paths)
+        
+        for path in self.subdirs:
+            # open dataframe with info about dataset
+            self.df_info[path] = pd.read_csv(os.path.join(self.path_to_data,path,'info.csv'))
+            # read images
+            self.images_array[path]  = np.array([sitk.GetArrayFromImage(
+                sitk.ReadImage(os.path.join(self.path_to_data,path,name))) for name  in self.df_info[path]['name']])
+            # reshape images
+            shape = self.images_array[path].shape
+            self.images_array[path] = self.images_array[path].reshape(-1,shape[1],shape[2],1)
+            # load labels
+            self.labels_array[path]  = np.array([int(x) for x in self.df_info[path]['ClinSig']])
+        
+        return self.images_array
+    
+    def get_data(self,subdir):
+        
+        return self.images_array[subdir], self.labels_array[subdir]
+    
+    def combine_channels(self,subdirs_to_combine):
+        
+        if any(sub not in self.subdirs for sub in subdirs_to_combine):
+            raise Exception('Paths have not been leaded!')
+        
+        if not reduce(lambda x,y: y 
+                      if len(self.images_array[x]) == len(self.images_array[y]) else False , subdirs_to_combine):
+            raise Exception('Not same number of images for all paths!')
+            
+        if not reduce(lambda x,y: y 
+                      if self.labels_array[x] == self.images_array[y] else False , subdirs_to_combine):
+            raise Exception('Not identicall labels to concatenate!')
+            
+        images = [self.images_array[sub] for sub in subdirs_to_combine]
+        concated_image = np.concatenate(images, axis=3)
+        
+        return concated_image
+
         
     

@@ -2,7 +2,11 @@ bin/
 src/CMakeFiles
 data/
 latex/
+ 
+*/data/
+*train.log*
 
+*package.egg-info*
 # IPython notebook
 .ipynb_checkpoints
 __pycache__

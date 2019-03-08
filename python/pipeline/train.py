@@ -1,0 +1,178 @@
+from __future__ import generators, division, absolute_import, with_statement, print_function, unicode_literals
+
+import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
+
+from siamese.dataset import Dataset
+from siamese.dataset import DataLoader
+from siamese.model import *
+from extensies import plotting
+import tensorflow as tf
+
+from sklearn.model_selection import train_test_split
+
+import sys
+
+
+flags = tf.app.flags
+FLAGS = flags.FLAGS
+flags.DEFINE_integer('batch_size', 126, 'Batch size.')
+flags.DEFINE_integer('train_iter', 1000, 'Total training iter')
+flags.DEFINE_integer('step', 50, 'Save after ... iteration')
+flags.DEFINE_string('model', 'siamese', 'model to run')
+flags.DEFINE_string('path_to_data', '../../data/', 'Path to data')
+
+
+if __name__ == "__main__":
+    
+
+	loader = DataLoader(FLAGS.path_to_data,['t2tsetra/t/40x40x1/'])
+	loader.load_data()
+	X,y = loader.get_data('t2tsetra/t/40x40x1/')
+
+	# divide data to train and test 
+	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+	# (X_train,y_train),(X_test,y_test) = tf.keras.datasets.fashion_mnist.load_data()
+	# X_train = X_train.reshape(-1,28,28,1)
+	# X_test = X_test.reshape(-1,28,28,1)
+	# X_train = X_train / 255
+	# X_test = X_test / 255
+
+	print('Shape of images: {},  Shape of labels: {}'.format(X_train.shape, y_train.shape))
+
+	dataset = Dataset()
+
+	dataset.images_train = X_train
+	dataset.images_test = X_test
+	dataset.labels_train = y_train
+	dataset.labels_test = y_test
+
+	# set all plots t draw
+	# plotter = plotting.DynamicPlotPlot()
+	# plotter.on_launch()
+	# plotter.add_subplot(plotter.ax.plot([],[], 'r-', label =  'Train')[0])
+	# plotter.add_subplot(plotter.ax.plot([],[], 'b-', label =  'Test')[0])
+	# plotter.add_subplot(plotter.ax.plot([],[], 'r--')[0])
+	# plotter.add_subplot(plotter.ax.plot([],[], 'b--')[0])
+	# plotter.ax.set_xlim(0, FLAGS.train_iter)
+
+	plotter = plotting.DynamicPlot()
+	plotter.on_launch(0,FLAGS.train_iter)
+
+	# colors = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#990000', '#999900', '#009900', '#009999']
+	# scatter = plotting.DynamicPlotPlot()
+	# scatter.on_launch()
+	# for j in range(10):
+	# 	scatter.add_subplot(scatter.ax.plot([], [], '.', c=colors[j], alpha=0.8)[0])
+	
+
+	batch_train_losses = []
+	batch_test_losses = []
+	accuracy_train = []
+	accuracy_test = []
+	loss_train = []
+	loss_test = []
+
+	model = mnist_model
+	placeholder_shape = [None] + list(dataset.images_train.shape[1:])
+
+	# Setup network
+	next_batch = dataset.get_siamese_batch
+	left = tf.placeholder(tf.float32, placeholder_shape, name='left')
+	right = tf.placeholder(tf.float32, placeholder_shape, name='right')
+	with tf.name_scope("similarity"):
+	    label = tf.placeholder(tf.int32, [None, 1], name='label') # 1 if same, 0 if different
+	    label_float = tf.to_float(label)
+	margin = 0.2
+	left_output = model(left, reuse=False)
+	right_output = model(right, reuse=True)
+	loss = contrastive_loss(left_output, right_output, label_float, margin)
+
+
+	global_step = tf.Variable(0, trainable=False)
+
+# 	starter_learning_rate = 0.0001
+# 	learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step, 1000, 0.96, staircase=True)
+# 	# tf.scalar_summary('lr', learning_rate)
+# 	train_step = tf.train.RMSPropOptimizer(learning_rate).minimize(loss, global_step=global_step)
+
+	# plott
+
+	train_step = tf.train.AdamOptimizer(0.00001).minimize(loss, global_step=global_step)
+
+
+	# train_step = tf.train.MomentumOptimizer(0.0001, 0.99, use_nesterov=True).minimize(loss, global_step=global_step)
+
+	# Start Training
+	saver = tf.train.Saver()
+	with tf.Session() as sess:
+		sess.run(tf.global_variables_initializer())
+
+		#setup tensorboard	
+		tf.summary.scalar('step', global_step)
+		tf.summary.scalar('loss', loss)
+		for var in tf.trainable_variables():
+			tf.summary.histogram(var.op.name, var)
+		merged = tf.summary.merge_all()
+		writer = tf.summary.FileWriter('train.log', sess.graph)
+
+		#train iter
+		for i in range(FLAGS.train_iter):
+			batch_left, batch_right, batch_similarity = next_batch(FLAGS.batch_size)
+
+			_, l_train, summary_str = sess.run([train_step, loss, merged],
+										 feed_dict={left:batch_left, right:batch_right, label: batch_similarity})
+				
+			batch_left, batch_right, batch_similarity = next_batch(FLAGS.batch_size,source = 'test')
+			l_test= sess.run(loss,
+										 feed_dict={left:batch_left, right:batch_right, label: batch_similarity})        
+	        
+			batch_train_losses.append(l_train)
+			batch_test_losses.append(l_test)
+
+
+			writer.add_summary(summary_str, i)
+			print("\r#%d - Loss"%i,l_train,  "Test_Loss ", l_test)
+				
+			if (i + 1) % FLAGS.step == 0:
+				#generate test
+				# TODO: create a test file and run per batch
+
+				a = dataset.test_oneshot(sess,left_output,left,4,100)
+				b = dataset.test_oneshot(sess,left_output,left,4,100,'train')
+				print('Accuracy train: ',b)
+				print('Accuracy test: ',a)
+				accuracy_test.append(a)
+				accuracy_train.append(b)
+				loss_test.append(np.sum(batch_test_losses) / len(batch_test_losses))
+				loss_train.append(np.sum(batch_train_losses) / len(batch_train_losses))
+
+				plotter.on_update(i+1,np.sum(batch_train_losses) / len(batch_train_losses),np.sum(batch_test_losses) / len(batch_test_losses))
+				# plotter.set_subplot(list(range(0,i+2,FLAGS.step)),loss_train,0)
+				# plotter.set_subplot(list(range(0,i+2,FLAGS.step)),loss_test,1)
+				# plotter.set_subplot(list(range(0,i+2,FLAGS.step)),accuracy_train,2)
+				# plotter.set_subplot(list(range(0,i+2,FLAGS.step)),accuracy_test,3)
+
+				batch_train_losses = []
+				batch_test_losses = []
+				# plotter.on_update()
+            	
+
+			# if (i + 1) % FLAGS.step == 0:
+   #          	#generate test
+			# 	# TODO: create a test file and run per batch
+			# 	feat = sess.run(left_output, feed_dict={left:dataset.images_test})
+				
+			# 	labels = dataset.labels_test
+			# 	# plot result
+			# 	for j in range(10):					
+			# 		scatter.set_subplot(feat[labels==j, 0].flatten(),feat[labels==j, 1].flatten(),j)
+				
+			# 	scatter.on_update()
+				    
+				
+			
+		plotter.on_finish()	
+		saver.save(sess, "model/model.ckpt")
