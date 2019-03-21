@@ -3,44 +3,84 @@ from __future__ import generators, division, absolute_import, with_statement, pr
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.model_selection import train_test_split
+import sys
+import datetime
 
 from siamese.dataset import Dataset
 from siamese.dataset import DataLoader
 from siamese.model import *
 from extensies import plotting
-import tensorflow as tf
+from extensies import augmentation as aug
+from extensies import preprocessing as ps 
 
-from sklearn.model_selection import train_test_split
 
-import sys
 
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_integer('batch_size', 126, 'Batch size.')
-flags.DEFINE_integer('train_iter', 1000, 'Total training iter')
+flags.DEFINE_integer('batch_size', 256, 'Batch size.')
+flags.DEFINE_integer('train_iter', 2500, 'Total training iter')
 flags.DEFINE_integer('step', 50, 'Save after ... iteration')
 flags.DEFINE_string('model', 'siamese', 'model to run')
 flags.DEFINE_string('path_to_data', '../../data/', 'Path to data')
+flags.DEFINE_string('network_name', 'lbp_adc', 'Name of network')
 
+modalities = ['adc/t/28x28x1']
+augmentation = False
+
+network_name,size = ps.generate_name(modalities)
+df = pd.read_csv('records.csv',index_col=0)
+row = pd.DataFrame(columns = df.columns)
+row.loc[0,'iterations'] = FLAGS.train_iter
+row.loc[0,'model'] = FLAGS.model
+row.loc[0,'modality'] = modalities
+row.loc[0,'size'] = size
+row.loc[0,'name'] = network_name
+row.loc[0,'date'] = datetime.datetime.now().strftime("%Y-%m-%d")
 
 if __name__ == "__main__":
     
 
-	loader = DataLoader(FLAGS.path_to_data,['t2tsetra/t/40x40x1/'])
+	loader = DataLoader(FLAGS.path_to_data,modalities)
 	loader.load_data()
-	X,y = loader.get_data('t2tsetra/t/40x40x1/')
-
+	# X,y = loader.get_data(modalities[0])
+	row.loc[0,'normalization'] = 'ScaleNormalization'
+	X,y = loader.combine_channels(modalities)
+	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 	# divide data to train and test 
-	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+	# X_train, X_test, y_train, y_test = loader.get_train_test('combined')
 
+	## LOCAL BINARY PATTERN
+
+	# lbp = aug.LocalBinaryPattern(8,1,'uniform')
+	# X_train = lbp.transform(X_train)
+	# X_test = lbp.transform(X_test)
+
+	## MNIST DATASET
+	
 	# (X_train,y_train),(X_test,y_test) = tf.keras.datasets.fashion_mnist.load_data()
 	# X_train = X_train.reshape(-1,28,28,1)
 	# X_test = X_test.reshape(-1,28,28,1)
 	# X_train = X_train / 255
 	# X_test = X_test / 255
 
-	print('Shape of images: {},  Shape of labels: {}'.format(X_train.shape, y_train.shape))
+	## AUGMNETATION
+	if augmentation:
+
+		augmentor = aug.ElasticAugmentor(X_train)
+		# X_trainA,y_trainA = augmentor.generate_images(X_train[:10000],y_train[:10000],50000)
+		# X_trainB,y_trainB = augmentor.generate_images(X_train[10000:20000],y_train[10000:20000],50000)
+		X_train,y_train = augmentor.generate_images(X_train,y_train,4000)	
+		# X_train = np.concatenate((X_train[:10000], X_train[:10000]), axis = 0)
+		# y_train = np.concatenate((y_train[:10000], y_train[:10000]), axis = 0) 
+		# X_test,y_test = augmentor.generate_images(X_test,y_test,200)
+		row.loc[0,'augmentation'] = augmentor.name
+	else:
+		row.loc[0,'augmentation'] = False
+
+	
 
 	dataset = Dataset()
 
@@ -49,23 +89,21 @@ if __name__ == "__main__":
 	dataset.labels_train = y_train
 	dataset.labels_test = y_test
 
-	# set all plots t draw
-	# plotter = plotting.DynamicPlotPlot()
-	# plotter.on_launch()
-	# plotter.add_subplot(plotter.ax.plot([],[], 'r-', label =  'Train')[0])
-	# plotter.add_subplot(plotter.ax.plot([],[], 'b-', label =  'Test')[0])
-	# plotter.add_subplot(plotter.ax.plot([],[], 'r--')[0])
-	# plotter.add_subplot(plotter.ax.plot([],[], 'b--')[0])
-	# plotter.ax.set_xlim(0, FLAGS.train_iter)
+	row.loc[0,'num_of_data'] = len(dataset.images_train) + len(dataset.images_test)
+
+	print('Shape of images: {},  Shape of labels: {}'.format(X_train.shape, y_train.shape))
 
 	plotter = plotting.DynamicPlot()
 	plotter.on_launch(0,FLAGS.train_iter)
 
-	# colors = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#990000', '#999900', '#009900', '#009999']
-	# scatter = plotting.DynamicPlotPlot()
-	# scatter.on_launch()
-	# for j in range(10):
-	# 	scatter.add_subplot(scatter.ax.plot([], [], '.', c=colors[j], alpha=0.8)[0])
+	colors = ['#ffff00', '#009900', '#009999','#00ffff', '#ff0000', '#ff00ff', '#00ff00', '#0000ff', '#990000', '#999900']
+
+	plotter2 = plotting.DynamicPlot()
+	plotter2.on_launch(0,FLAGS.train_iter)
+	scatter = plotting.DynamicPlotPlot()
+	scatter.on_launch()
+	for j in range(2):
+		scatter.add_subplot(scatter.ax.plot([], [], '.', c=colors[j], alpha=0.8)[0])
 	
 
 	batch_train_losses = []
@@ -85,10 +123,10 @@ if __name__ == "__main__":
 	with tf.name_scope("similarity"):
 	    label = tf.placeholder(tf.int32, [None, 1], name='label') # 1 if same, 0 if different
 	    label_float = tf.to_float(label)
-	margin = 0.2
+	margin = 0.5
 	left_output = model(left, reuse=False)
 	right_output = model(right, reuse=True)
-	loss = contrastive_loss(left_output, right_output, label_float, margin)
+	loss = contrastive_loss( left_output, right_output,label_float, margin)
 
 
 	global_step = tf.Variable(0, trainable=False)
@@ -150,6 +188,7 @@ if __name__ == "__main__":
 				loss_train.append(np.sum(batch_train_losses) / len(batch_train_losses))
 
 				plotter.on_update(i+1,np.sum(batch_train_losses) / len(batch_train_losses),np.sum(batch_test_losses) / len(batch_test_losses))
+				plotter2.on_update(i+1,b,a)
 				# plotter.set_subplot(list(range(0,i+2,FLAGS.step)),loss_train,0)
 				# plotter.set_subplot(list(range(0,i+2,FLAGS.step)),loss_test,1)
 				# plotter.set_subplot(list(range(0,i+2,FLAGS.step)),accuracy_train,2)
@@ -160,19 +199,22 @@ if __name__ == "__main__":
 				# plotter.on_update()
             	
 
-			# if (i + 1) % FLAGS.step == 0:
-   #          	#generate test
-			# 	# TODO: create a test file and run per batch
-			# 	feat = sess.run(left_output, feed_dict={left:dataset.images_test})
+			if (i + 1) % FLAGS.step == 0:
+            	#generate test
+				# TODO: create a test file and run per batch
+				feat = sess.run(left_output, feed_dict={left:dataset.images_test})
 				
-			# 	labels = dataset.labels_test
-			# 	# plot result
-			# 	for j in range(10):					
-			# 		scatter.set_subplot(feat[labels==j, 0].flatten(),feat[labels==j, 1].flatten(),j)
+				labels = dataset.labels_test
+				# plot result
+				for j in range(2):					
+					scatter.set_subplot(feat[labels==j, 0].flatten(),feat[labels==j, 1].flatten(),j)
 				
-			# 	scatter.on_update()
+				scatter.on_update()
 				    
 				
 			
 		plotter.on_finish()	
-		saver.save(sess, "model/model.ckpt")
+		saver.save(sess, "model/"+network_name+".ckpt")
+
+		df = df.append(row, ignore_index = True)
+		df.to_csv('records.csv')

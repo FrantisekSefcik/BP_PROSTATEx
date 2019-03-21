@@ -1,2 +1,2 @@
-model_checkpoint_path: "model.ckpt"
-all_model_checkpoint_paths: "model.ckpt"
+model_checkpoint_path: "adc_28x28x1_58531.ckpt"
+all_model_checkpoint_paths: "adc_28x28x1_58531.ckpt"

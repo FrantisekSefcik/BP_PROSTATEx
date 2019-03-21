@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import pandas as pd 
 import SimpleITK as sitk
 from functools import reduce
+from sklearn.model_selection import train_test_split
 
 class Dataset(object):
     images_train = np.array([])
@@ -126,6 +127,10 @@ class DataLoader(object):
         self.images_array  = {}
         self.labels_array  = {}
         self.df_info = {}
+
+    def get_normalization(self,subdir):
+
+        return self.df_info[subdir].iloc[0]['normalization']
         
     def load_data(self,subdirs_paths = None):
         
@@ -137,7 +142,7 @@ class DataLoader(object):
             self.df_info[path] = pd.read_csv(os.path.join(self.path_to_data,path,'info.csv'))
             # read images
             self.images_array[path]  = np.array([sitk.GetArrayFromImage(
-                sitk.ReadImage(os.path.join(self.path_to_data,path,name))) for name  in self.df_info[path]['name']])
+                sitk.ReadImage(os.path.join(self.path_to_data,path,name), sitk.sitkFloat32)) for name  in self.df_info[path]['name']])
             # reshape images
             shape = self.images_array[path].shape
             self.images_array[path] = self.images_array[path].reshape(-1,shape[1],shape[2],1)
@@ -149,6 +154,18 @@ class DataLoader(object):
     def get_data(self,subdir):
         
         return self.images_array[subdir], self.labels_array[subdir]
+
+    def get_train_test(self,subdir,test_size = 0.3):
+
+
+        df = self.df_info[subdir]
+        maxx = int(df['ID'].max()) + 1
+
+        idx_train, idx_test = train_test_split(range(maxx), test_size=test_size, random_state=42)
+
+        idx_train  = df[df['ID'].isin(idx_train)].index
+        idx_test  = df[df['ID'].isin(idx_test)].index
+        return self.images_array[subdir][idx_train], self.images_array[subdir][idx_test], self.labels_array[subdir][idx_train], self.labels_array[subdir][idx_test]
     
     def combine_channels(self,subdirs_to_combine):
         
@@ -159,14 +176,16 @@ class DataLoader(object):
                       if len(self.images_array[x]) == len(self.images_array[y]) else False , subdirs_to_combine):
             raise Exception('Not same number of images for all paths!')
             
-        if not reduce(lambda x,y: y 
-                      if self.labels_array[x] == self.images_array[y] else False , subdirs_to_combine):
-            raise Exception('Not identicall labels to concatenate!')
+        # if not reduce(lambda x,y: y 
+        #               if self.labels_array[x] == self.images_array[y] else False , subdirs_to_combine):
+        #     raise Exception('Not identicall labels to concatenate!')
             
         images = [self.images_array[sub] for sub in subdirs_to_combine]
         concated_image = np.concatenate(images, axis=3)
         
-        return concated_image
+        self.images_array['combined'] = concated_image
+        self.labels_array['combined'] = self.labels_array[subdirs_to_combine[0]]
+        return concated_image, self.labels_array[subdirs_to_combine[0]]
 
         
     

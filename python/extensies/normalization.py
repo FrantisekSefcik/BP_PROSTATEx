@@ -36,6 +36,7 @@ class ScaleNormalization(object):
         """
         self.__range_max = range_max
         self.__range_min = range_min
+        self.name = 'ScaleNormalization'
 
 
     def get_parameters(self):
@@ -135,6 +136,7 @@ class ZScoreNormalization(object):
         self.__norm_factor = norm_factor
         self.__mu = mu
         self.__sigma = sigma
+        self.name = 'ZScoreNormalization'
 
     def __init_from_data__(self, x, norm_factor):
         """Function to initialise the class members using data

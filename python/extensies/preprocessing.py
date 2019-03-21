@@ -5,6 +5,8 @@ import os
 import re
 import pandas as pd
 from extensies import gui
+from functools import reduce
+import random
 
 class DicomReader():
     
@@ -150,8 +152,10 @@ def get_ktrans_path(patient, root_path = ''):
     return os.path.join(path_to_image,image_name)  
 
 
-def get_patch_from_image(image = None, size = None, center = None, orientation = 't'):
-        
+def get_patch_from_image(image = None, size = None, center = None, orientation = 't',offset = [0,0,0]):
+      
+
+    center = np.add(center, offset)  
     if orientation == 's':
         size = (size[0],size[2],size[1])
     elif orientation == 'a':
@@ -160,6 +164,8 @@ def get_patch_from_image(image = None, size = None, center = None, orientation =
         pass
     else:
         raise Exception('Wrong orientation type! Chose from this tree: t,s,a')
+
+
        
     center_idxs = np.array(image.TransformPhysicalPointToContinuousIndex(center)) + 0.5
     vol = sitk.GetArrayFromImage(image)
@@ -217,3 +223,15 @@ def resample_image_to_spacing(image,spacing,interpolator,report = False):
                                                     newimage.GetSize(),image.GetSpacing(),newimage.GetSpacing()))
     
     return newimage
+
+def generate_name(modalities):
+    words = [x.split('/') for x in modalities]
+    if len(modalities) > 1:
+        name = reduce(lambda x,y: y[0] + '_' + x[0], words)
+    else:
+        name = words[0][0]
+    
+    random_num = random.randint(10000, 99999)
+    name = name + '_' + words[0][2] + '_' + str(random_num)
+
+    return name, words[0][2]
