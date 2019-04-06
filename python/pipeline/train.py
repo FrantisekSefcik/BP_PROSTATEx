@@ -7,13 +7,15 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 import sys
 import datetime
+from sklearn import metrics
 
 from siamese.dataset import Dataset
 from siamese.dataset import DataLoader
 from siamese.model import *
 from extensies import plotting
 from extensies import augmentation as aug
-from extensies import preprocessing as ps 
+from extensies import preprocessing as ps
+from extensies import metrics as my_metrics 
 
 
 
@@ -21,13 +23,14 @@ from extensies import preprocessing as ps
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('batch_size', 256, 'Batch size.')
-flags.DEFINE_integer('train_iter', 2500, 'Total training iter')
+flags.DEFINE_integer('train_iter', 1000, 'Total training iter')
 flags.DEFINE_integer('step', 50, 'Save after ... iteration')
 flags.DEFINE_string('model', 'siamese', 'model to run')
 flags.DEFINE_string('path_to_data', '../../data/', 'Path to data')
 flags.DEFINE_string('network_name', 'lbp_adc', 'Name of network')
+colors = ['#ffff00', '#009900', '#009999','#00ffff', '#ff0000', '#ff00ff', '#00ff00', '#0000ff', '#990000', '#999900']
 
-modalities = ['adc/t/28x28x1']
+modalities = ['adc/t/40x40x1','t2tsetra/t/40x40x1','ktrans/t/40x40x1']
 augmentation = False
 
 network_name,size = ps.generate_name(modalities)
@@ -41,16 +44,19 @@ row.loc[0,'name'] = network_name
 row.loc[0,'date'] = datetime.datetime.now().strftime("%Y-%m-%d")
 
 if __name__ == "__main__":
-    
 
-	loader = DataLoader(FLAGS.path_to_data,modalities)
-	loader.load_data()
-	# X,y = loader.get_data(modalities[0])
+	if len(modalities) > 1:
+		loader = DataLoader(FLAGS.path_to_data,modalities)
+		loader.load_data()
+		loader.combine_channels(modalities)
+		X_train, X_test, y_train, y_test = loader.get_train_test('combined',zones = ['PZ'])
+
+	else:
+		loader = DataLoader(FLAGS.path_to_data,modalities)
+		loader.load_data()
+		X_train, X_test, y_train, y_test = loader.get_train_test(modalities[0],zones = ['PZ'])
+	
 	row.loc[0,'normalization'] = 'ScaleNormalization'
-	X,y = loader.combine_channels(modalities)
-	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-	# divide data to train and test 
-	# X_train, X_test, y_train, y_test = loader.get_train_test('combined')
 
 	## LOCAL BINARY PATTERN
 
@@ -69,21 +75,15 @@ if __name__ == "__main__":
 	## AUGMNETATION
 	if augmentation:
 
-		augmentor = aug.ElasticAugmentor(X_train)
-		# X_trainA,y_trainA = augmentor.generate_images(X_train[:10000],y_train[:10000],50000)
-		# X_trainB,y_trainB = augmentor.generate_images(X_train[10000:20000],y_train[10000:20000],50000)
-		X_train,y_train = augmentor.generate_images(X_train,y_train,4000)	
-		# X_train = np.concatenate((X_train[:10000], X_train[:10000]), axis = 0)
-		# y_train = np.concatenate((y_train[:10000], y_train[:10000]), axis = 0) 
-		# X_test,y_test = augmentor.generate_images(X_test,y_test,200)
+		augmentor = aug.ClassicAugmentor(X_train)
+		X_train,y_train = augmentor.generate_images(X_train,y_train,2000)	
+		X_test,y_test = augmentor.generate_images(X_test,y_test,500)
 		row.loc[0,'augmentation'] = augmentor.name
 	else:
 		row.loc[0,'augmentation'] = False
 
 	
-
 	dataset = Dataset()
-
 	dataset.images_train = X_train
 	dataset.images_test = X_test
 	dataset.labels_train = y_train
@@ -93,10 +93,10 @@ if __name__ == "__main__":
 
 	print('Shape of images: {},  Shape of labels: {}'.format(X_train.shape, y_train.shape))
 
+
+
 	plotter = plotting.DynamicPlot()
 	plotter.on_launch(0,FLAGS.train_iter)
-
-	colors = ['#ffff00', '#009900', '#009999','#00ffff', '#ff0000', '#ff00ff', '#00ff00', '#0000ff', '#990000', '#999900']
 
 	plotter2 = plotting.DynamicPlot()
 	plotter2.on_launch(0,FLAGS.train_iter)
@@ -113,7 +113,7 @@ if __name__ == "__main__":
 	loss_train = []
 	loss_test = []
 
-	model = mnist_model
+	model = xmas_model
 	placeholder_shape = [None] + list(dataset.images_train.shape[1:])
 
 	# Setup network
@@ -187,8 +187,17 @@ if __name__ == "__main__":
 				loss_test.append(np.sum(batch_test_losses) / len(batch_test_losses))
 				loss_train.append(np.sum(batch_train_losses) / len(batch_train_losses))
 
+
+				train_feat = sess.run(left_output, feed_dict={left:dataset.images_train})
+				search_feat = sess.run(left_output, feed_dict={left:dataset.images_test})
+				y_pred,y_pred_t = [],[]
+				for _,feat in enumerate(search_feat):
+				    #calculate the cosine similarity and sort
+					y_pred.append(my_metrics.siamese_predict(train_feat,feat,dataset))
+					y_pred_t.append(my_metrics.treshold_predict(train_feat,feat,dataset,0.4,10))
+
 				plotter.on_update(i+1,np.sum(batch_train_losses) / len(batch_train_losses),np.sum(batch_test_losses) / len(batch_test_losses))
-				plotter2.on_update(i+1,b,a)
+				plotter2.on_update(i+1,metrics.roc_auc_score(dataset.labels_test,y_pred_t),metrics.roc_auc_score(dataset.labels_test,y_pred))
 				# plotter.set_subplot(list(range(0,i+2,FLAGS.step)),loss_train,0)
 				# plotter.set_subplot(list(range(0,i+2,FLAGS.step)),loss_test,1)
 				# plotter.set_subplot(list(range(0,i+2,FLAGS.step)),accuracy_train,2)
@@ -199,17 +208,22 @@ if __name__ == "__main__":
 				# plotter.on_update()
             	
 
-			if (i + 1) % FLAGS.step == 0:
-            	#generate test
-				# TODO: create a test file and run per batch
-				feat = sess.run(left_output, feed_dict={left:dataset.images_test})
+			# if (i + 1) % FLAGS.step == 0:
+   #          	#generate test
+			# 	# TODO: create a test file and run per batch
+			# 	train_feat = sess.run(left_output, feed_dict={left:dataset.images_train})
+			# 	feat = sess.run(left_output, feed_dict={left:dataset.images_test})
+			# 	for _,feat in enumerate(search_feat):
+			# 	    #calculate the cosine similarity and sort
+			# 		y_pred_t.append(my_metrics.treshold_predict(train_feat,feat,dataset,0.4,10))
+
+
+			# 	labels = dataset.labels_test
+			# 	# plot result
+			# 	for j in range(2):					
+			# 		scatter.set_subplot(feat[labels==j, 0].flatten(),feat[labels==j, 1].flatten(),j)
 				
-				labels = dataset.labels_test
-				# plot result
-				for j in range(2):					
-					scatter.set_subplot(feat[labels==j, 0].flatten(),feat[labels==j, 1].flatten(),j)
-				
-				scatter.on_update()
+			# 	scatter.on_update()
 				    
 				
 			
