@@ -15,10 +15,10 @@ import sys
 
 root_path = '../../data/PROSTATEx'
 path_to_data = '../../data/'
-modality = 'ktrans'
-new_spacing = (0.5,0.5,3)
-orientation = 't'
-patch_size = (28,28,1)
+modality = 'adc'
+new_spacing = (1,1,1)
+orientation = 's'
+patch_size = (20,20,1)
 
 target_path = os.path.join(path_to_data,modality,orientation, 
                             str(patch_size[0]) + 'x' + str(patch_size[1]) + 'x' + str(patch_size[2]))
@@ -37,12 +37,13 @@ if __name__ == "__main__":
     
     new_df = pd.DataFrame(columns = ['ProxID','fid','zone','ClinSig','name'])
     roi_volumes = []
-    findings = df_findings.drop(df_findings.index[[33,34,35,36,37,154]])
+    findings = df_findings.drop(df_findings.index[[33,34,35,36,37,154,84,110,131,145]])
+    findings = findings[findings['zone'] != 'SV']
     
     # iterate throught all findings
     index = 0
     for idx,(_,row) in enumerate(findings.iterrows()):
-        print(idx)
+        print(row['ProxID'])
 
         if modality == 'ktrans':
             path_to_image = my.get_ktrans_path(row['ProxID'],path_to_data)

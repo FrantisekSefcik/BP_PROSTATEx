@@ -19,19 +19,18 @@ idx = df.tail(1).index[0]
 model_name = df.iloc[idx]['name']
 modalities = df.iloc[idx]['modality']
 modalities = ast.literal_eval(modalities)
-combined = len(modalities)>1
-
-if combined:
-	loader = DataLoader('../../data/',modalities)
-	loader.load_data()
-	X,y = loader.combine_channels(modalities)
-	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-    # X_train, X_test, y_train, y_test = loader.get_train_test('combined')
+print(modalities)
+if len(modalities)>1:
+    print('combined')
+    loader = DataLoader('../../data/',modalities)
+    loader.load_data()
+    X,y = loader.combine_channels(modalities)
+    X_train, X_test, y_train, y_test = loader.get_train_test('combined',zones = ['PZ'])
 
 else:
-	loader = DataLoader('../../data/',modalities)
-	loader.load_data()
-	X_train, X_test, y_train, y_test = loader.get_train_test(modalities[0])
+    loader = DataLoader('../../data/',modalities)
+    loader.load_data()
+    X_train, X_test, y_train, y_test = loader.get_train_test(modalities[0],zones = ['PZ'])
 
 print('Model name: ' ,model_name)
 
@@ -55,7 +54,7 @@ dataset.labels_test = y_test
 
 # restore model and count features
 img_placeholder = tf.placeholder(tf.float32, [None] + list(dataset.images_train.shape[1:]), name='img')
-net = mnist_model(img_placeholder, reuse=False)
+net = xmas_model(img_placeholder, reuse=False)
 
 #run the train image through the network to get the test features
 saver = tf.train.Saver()
