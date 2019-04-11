@@ -126,8 +126,8 @@ def save_image(image,filename):
     if not os.path.exists(directory):
         os.makedirs(directory) 
     
-    im = sitk.GetImageFromArray(image, isVector=False)
-    sitk.WriteImage(im, filename, True)
+    img = sitk.GetImageFromArray(image, isVector=False)
+    sitk.WriteImage(img, filename, True)
     
     
     
@@ -226,12 +226,18 @@ def resample_image_to_spacing(image,spacing,interpolator,report = False):
 
 def generate_name(modalities):
     words = [x.split('/') for x in modalities]
+    words_mod = [x[0] for x in words][::-1]
+
     if len(modalities) > 1:
-        name = reduce(lambda x,y: y[0] + '_' + x[0], words)
+        name = reduce(lambda x,y: y + '_' + x, words_mod)
     else:
-        name = words[0][0]
+        name = words_mod[0]
     
     random_num = random.randint(10000, 99999)
     name = name + '_' + words[0][2] + '_' + str(random_num)
 
     return name, words[0][2]
+
+def generate_index():
+
+    return random.randint(10000, 99999)
