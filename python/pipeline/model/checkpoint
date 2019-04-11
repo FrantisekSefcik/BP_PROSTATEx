@@ -1,2 +1,2 @@
-model_checkpoint_path: "adc_t2tsetra_ktrans_40x40x1_40059.ckpt"
-all_model_checkpoint_paths: "adc_t2tsetra_ktrans_40x40x1_40059.ckpt"
+model_checkpoint_path: "adc_t2tsetra_20x20x1_92513.ckpt"
+all_model_checkpoint_paths: "adc_t2tsetra_20x20x1_92513.ckpt"

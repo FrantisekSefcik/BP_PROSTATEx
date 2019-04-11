@@ -15,7 +15,7 @@ import sys
 
 root_path = '../../data/PROSTATEx'
 path_to_data = '../../data/'
-modality = 'adc'
+modality = 'ktrans'
 new_spacing = (1,1,1)
 orientation = 's'
 patch_size = (20,20,1)
@@ -23,9 +23,9 @@ patch_size = (20,20,1)
 target_path = os.path.join(path_to_data,modality,orientation, 
                             str(patch_size[0]) + 'x' + str(patch_size[1]) + 'x' + str(patch_size[2]))
 
-x = 1.5
+# x = 1.5
 # offsets = [[0,0,0],[-x,x,x],[x,x,x],[-x,-x,x],[x,-x,x],
-#            [-x,x,0],[x,x,0],[-x,-x,0],[x,-x,0],[-x,x,-x],[x,x,-x],[-x,-x,-x],[x,-x,-x]]
+#             [-x,x,0],[x,x,0],[-x,-x,0],[x,-x,0],[-x,x,-x],[x,x,-x],[-x,-x,-x],[x,-x,-x]]
 offsets = [[0,0,0]]
 
 if __name__ == "__main__":
@@ -37,7 +37,9 @@ if __name__ == "__main__":
     
     new_df = pd.DataFrame(columns = ['ProxID','fid','zone','ClinSig','name'])
     roi_volumes = []
-    findings = df_findings.drop(df_findings.index[[33,34,35,36,37,154,84,110,131,145]])
+    # findings = df_findings.drop(df_findings.index[[33,34,35,36,37,154]])
+    findings = df_findings.drop(df_findings.index[[33,34,35,36,37,154,5,44,45,46,64,
+                                                   81,84,87,110,114,131,145,162,176,179,190,193,215,230,246,264,265,268,275,292,304,325]])
     findings = findings[findings['zone'] != 'SV']
     
     # iterate throught all findings

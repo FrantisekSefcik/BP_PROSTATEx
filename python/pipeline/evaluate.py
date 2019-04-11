@@ -25,12 +25,12 @@ if len(modalities)>1:
     loader = DataLoader('../../data/',modalities)
     loader.load_data()
     X,y = loader.combine_channels(modalities)
-    X_train, X_test, y_train, y_test = loader.get_train_test('combined',zones = ['PZ'])
+    X_train, X_test, y_train, y_test = loader.get_train_test('combined')
 
 else:
     loader = DataLoader('../../data/',modalities)
     loader.load_data()
-    X_train, X_test, y_train, y_test = loader.get_train_test(modalities[0],zones = ['PZ'])
+    X_train, X_test, y_train, y_test = loader.get_train_test(modalities[0])
 
 print('Model name: ' ,model_name)
 

@@ -25,12 +25,12 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer('batch_size', 256, 'Batch size.')
 flags.DEFINE_integer('train_iter', 1000, 'Total training iter')
 flags.DEFINE_integer('step', 50, 'Save after ... iteration')
-flags.DEFINE_string('model', 'siamese', 'model to run')
+flags.DEFINE_string('model', 'xmass', 'model to run')
 flags.DEFINE_string('path_to_data', '../../data/', 'Path to data')
 flags.DEFINE_string('network_name', 'lbp_adc', 'Name of network')
 colors = ['#ffff00', '#009900', '#009999','#00ffff', '#ff0000', '#ff00ff', '#00ff00', '#0000ff', '#990000', '#999900']
 
-modalities = ['adc/t/40x40x1','t2tsetra/t/40x40x1','ktrans/t/40x40x1']
+modalities = ['adc/a/20x20x1','t2tsetra/a/20x20x1']
 augmentation = False
 
 network_name,size = ps.generate_name(modalities)
@@ -49,12 +49,12 @@ if __name__ == "__main__":
 		loader = DataLoader(FLAGS.path_to_data,modalities)
 		loader.load_data()
 		loader.combine_channels(modalities)
-		X_train, X_test, y_train, y_test = loader.get_train_test('combined',zones = ['PZ'])
+		X_train, X_test, y_train, y_test = loader.get_train_test('combined')
 
 	else:
 		loader = DataLoader(FLAGS.path_to_data,modalities)
 		loader.load_data()
-		X_train, X_test, y_train, y_test = loader.get_train_test(modalities[0],zones = ['PZ'])
+		X_train, X_test, y_train, y_test = loader.get_train_test(modalities[0])
 	
 	row.loc[0,'normalization'] = 'ScaleNormalization'
 

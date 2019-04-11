@@ -5,9 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 
-def siamese_predict(train_feat, search_feat, dataset):
-    n = 10
-    dist = cdist(train_feat, [search_feat], 'cosine')
+def siamese_predict(train_feat, search_feat, dataset,n = 10, distance = 'cosine'):
+    dist = cdist(train_feat, [search_feat], distance)
     rank = np.argsort(dist.ravel())
     
     labels = dataset.labels_train[rank[:n]]
@@ -18,9 +17,9 @@ def siamese_predict(train_feat, search_feat, dataset):
     return a
     
 
-def treshold_predict(train_feat, search_feat, dataset,treshold = 0.5,n = 10):
+def treshold_predict(train_feat, search_feat, dataset,treshold = 0.5,n = 10, distance = 'cosine'):
     
-    dist = cdist(train_feat, [search_feat], 'cosine')
+    dist = cdist(train_feat, [search_feat], distance)
     rank = np.argsort(dist.ravel())
     
     labels = dataset.labels_train[rank[:n]]
@@ -34,12 +33,12 @@ def treshold_predict(train_feat, search_feat, dataset,treshold = 0.5,n = 10):
     
 
 
-def weighted_predict(train_feat, search_feat, dataset,treshold = 0.5,n = 10):
-    dist = cdist(train_feat, [search_feat], 'euclidean')
+def weighted_predict(train_feat, search_feat, dataset,treshold = 0.5,n = 10, distance = 'cosine'):
+    dist = cdist(train_feat, [search_feat], distance)
     rank = np.argsort(dist.ravel())
     labels = dataset.labels_train[rank[:n]]
     dictionary = {0:0,1:0}
-    for x,y in zip(labels,rank[:n]):
+    for x,y in zip(labels,dist[rank[:n]]):
         dictionary[x] += (1 - y)
     
     dictionary[0] /= dictionary[0] + dictionary[1]
