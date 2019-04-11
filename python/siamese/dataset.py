@@ -8,6 +8,7 @@ import pandas as pd
 import SimpleITK as sitk
 from functools import reduce
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold
 
 class Dataset(object):
     images_train = np.array([])
@@ -45,21 +46,26 @@ class Dataset(object):
         else:
             return self._get_siamese_dissimilar_pair(source)
 
-    def get_siamese_batch(self, n, source = 'train'):
+    def get_siamese_batch(self, n, source = 'train',augmentor = False):
         
         if not self.updated:
             self._update()
         
-        idxs_left, idxs_right, labels = [], [], []
+        images = self._get_images(source)
+        images_left, images_right, labels = [], [], []
+        
         for _ in range(n):
             l, r, x, _ = self._get_siamese_pair(source)
-            idxs_left.append(l)
-            idxs_right.append(r)
+            if augmentor:
+                images_left.append(augmentor.augment_image(images[l]))
+                images_right.append(augmentor.augment_image(images[r]))
+            else:
+                images_left.append(images[l])
+                images_right.append(images[r])
             labels.append(x)
         
-        images = self._get_images(source)
             
-        return images[idxs_left,:], images[idxs_right, :], np.expand_dims(labels, axis=1)
+        return np.array(images_left), np.array(images_right), np.expand_dims(labels, axis=1)
     
     
     def get_oneshot_task(self, n = 2, source = 'test'):
@@ -145,6 +151,7 @@ class DataLoader(object):
                 sitk.ReadImage(os.path.join(self.path_to_data,path,name), sitk.sitkFloat32)) for name  in self.df_info[path]['name']])
             # reshape images
             shape = self.images_array[path].shape
+            print(self.images_array[path][0].shape)
             self.images_array[path] = self.images_array[path].reshape(-1,shape[1],shape[2],1)
             # load labels
             self.labels_array[path]  = np.array([int(x) for x in self.df_info[path]['ClinSig']])
@@ -155,13 +162,30 @@ class DataLoader(object):
         
         return self.images_array[subdir], self.labels_array[subdir]
 
-    def get_train_test(self,subdir,test_size = 0.3):
+    def get_shape(self,subdir):
+        
+        return self.images_array[subdir].shape
 
+    def get_data_by_index(self,subdir = None, idx = 0):
+        if subdir == None:
+            images = []
+            labels = []
+            for subdir in self.subdirs:
+                images.append(self.images_array[subdir][idx])
+                labels.append(self.labels_array[subdir][idx])
+            return np.array(images),np.array(labels)
+        else:
+            return self.images_array[subdir][idx], self.labels_array[subdir][idx]
 
-        df = self.df_info[subdir]
-        maxx = int(df['ID'].max()) + 1
+    def get_train_test(self,subdir,test_size = 0.3,zones = ['PZ','TZ','AS']):
+        if(subdir == 'combined'):
+            df = next(iter(self.df_info.values()))
+        else:
+            df = self.df_info[subdir]
+            
+        df = df[df['zone'].isin(zones)]
 
-        idx_train, idx_test = train_test_split(range(maxx), test_size=test_size, random_state=42)
+        idx_train, idx_test = train_test_split(df['ID'].unique(), test_size=test_size, random_state=42)
 
         idx_train  = df[df['ID'].isin(idx_train)].index
         idx_test  = df[df['ID'].isin(idx_test)].index
@@ -186,6 +210,30 @@ class DataLoader(object):
         self.images_array['combined'] = concated_image
         self.labels_array['combined'] = self.labels_array[subdirs_to_combine[0]]
         return concated_image, self.labels_array[subdirs_to_combine[0]]
+
+    def k_fold(self,subdir,num=5,zones = ['PZ','TZ','AS']):
+
+        if(subdir == 'combined'):
+            df = next(iter(self.df_info.values()))
+        else:
+            df = self.df_info[subdir]
+            
+        df = df[df['zone'].isin(zones)]
+        indices = df['ID'].unique()
+
+        kf = KFold(n_splits=num,random_state=42)
+        generator = kf.split(indices)
+
+        for x,y in generator:
+            idx_train  = df[df['ID'].isin(indices[x])].index
+            idx_test  = df[df['ID'].isin(indices[y])].index
+            yield self.images_array[subdir][idx_train], self.images_array[subdir][idx_test], self.labels_array[subdir][idx_train], self.labels_array[subdir][idx_test]
+    
+             
+
+
+
+
 
         
     
