@@ -3,6 +3,7 @@ from imgaug import augmenters as iaa
 import random
 import numpy as np 
 import skimage.feature as ft
+import albumentations
 
 
 
@@ -68,7 +69,7 @@ class RigidAugmentor(object):
 		#     iaa.PiecewiseAffine(scale = (0,0.05)),
 		    iaa.Fliplr(0.5), # horizontally flip 50% of the images
 		    iaa.Flipud(0.5), 
-		    # iaa.Rot90(k=1)
+		    iaa.Rot90(k=(0,3))
 
 		    # iaa.CropToFixedSize(w - 2,w - 2,position = 'uniform') 
 		])
@@ -107,3 +108,65 @@ class LocalBinaryPattern(object):
 
 
 		return np.array(images).reshape(shape)
+
+
+class ClassicAugmentor(object):
+
+	def __init__(self,images):
+		self.seq= albumentations.Compose([
+			        albumentations.HorizontalFlip(p=0.5),
+			        albumentations.RandomRotate90(p = 1),
+			        albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.05, rotate_limit=20, p=1)
+			    ], p=1)
+
+		self.name = 'Rigid'
+
+	def generate_images(self,images,labels,num):
+		lenght = len(images)
+
+		X_arr = []
+		y_arr = []
+
+		for x in range(num):
+			random_image_index = random.randint(0, lenght -1)
+			img = self.seq(image = images[random_image_index])['image']
+			X_arr.append(img)
+			y_arr.append(labels[random_image_index])
+
+		return np.array(X_arr),np.array(y_arr)
+
+	def augment_image(self,image):
+
+		return self.seq(image = image)['image']
+
+class Elastic2Augmentor(object):
+
+	def __init__(self,images):
+		self.seq= albumentations.Compose([
+				    albumentations.augmentations.transforms.ElasticTransform(alpha=1, sigma=20, alpha_affine=3, 
+				                                                             interpolation=1, border_mode=4, 
+				                                                             always_apply=False, approximate=False, p=1),
+				    albumentations.HorizontalFlip(p=0.5),
+			        albumentations.RandomRotate90(p = 1)
+				    ], p=1)
+
+		self.name = 'Elastic'
+
+	def generate_images(self,images,labels,num):
+		lenght = len(images)
+
+		X_arr = []
+		y_arr = []
+
+		for x in range(num):
+			random_image_index = random.randint(0, lenght -1)
+			img = self.seq(image = images[random_image_index])['image']
+			X_arr.append(img)
+			y_arr.append(labels[random_image_index])
+
+		return np.array(X_arr),np.array(y_arr)
+
+	def augment_image(self,image):
+
+		return self.seq(image = image)['image']
+
