@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 
+# prediction of the most similar
 def siamese_predict(train_feat, search_feat, dataset,n = 10, distance = 'cosine'):
     dist = cdist(train_feat, [search_feat], distance)
     rank = np.argsort(dist.ravel())
@@ -16,7 +17,7 @@ def siamese_predict(train_feat, search_feat, dataset,n = 10, distance = 'cosine'
     b = labels[0]
     return a
     
-
+# prediction by percentage of positives in top similar
 def treshold_predict(train_feat, search_feat, dataset,treshold = 0.5,n = 10, distance = 'cosine'):
     
     dist = cdist(train_feat, [search_feat], distance)
@@ -30,9 +31,31 @@ def treshold_predict(train_feat, search_feat, dataset,treshold = 0.5,n = 10, dis
         return 1
     else:
         return 0
-    
 
+def get_separated(y,y_pred):
+    dictionary = dict([])
+    # ma byt pozitivny a aj je predikovany ako pozitivny
+    dictionary['tp'] = np.where([x==y and x == 1 for (x,y) in zip(y,y_pred)])[0]
+    # ma byt pozitivny je predikovany ako negativny
+    dictionary['fn'] = np.where([x!=y and x == 1 for (x,y) in zip(y,y_pred)])[0]
+    # ma byt negativny a aj je predikovany ako negativny
+    dictionary['tn'] = np.where([x==y and x == 0 for (x,y) in zip(y,y_pred)])[0]
+    # ma byt negativny je predikovany ako pozitivny
+    dictionary['fp'] = np.where([x!=y and x == 0 for (x,y) in zip(y,y_pred)])[0]
+    return dictionary
 
+# function to find most similar images to test one
+def show_most_similar(train_feat, search_feat, dataset,idx = 0,n = 10):
+    dist = cdist(train_feat, [search_feat[idx]], 'euclidean')
+    rank = np.argsort(dist.ravel())
+    labels = dataset.labels_train[rank[:n]]
+    plt.title(str(dataset.labels_train[idx]))
+    plt.imshow(dataset.images_test[idx,:,:,0],cmap = 'gray')
+    show_image(rank[:n],dataset.images_train,dataset.labels_train)
+
+# rest of functions
+
+# prediction by percentage of positives in top similar with weights
 def weighted_predict(train_feat, search_feat, dataset,treshold = 0.5,n = 10, distance = 'cosine'):
     dist = cdist(train_feat, [search_feat], distance)
     rank = np.argsort(dist.ravel())
@@ -50,6 +73,16 @@ def weighted_predict(train_feat, search_feat, dataset,treshold = 0.5,n = 10, dis
         return 0
     
 
+def percent_predict(train_feat, search_feat, dataset,n = 10, distance = 'cosine'):
+    
+    dist = cdist(train_feat, [search_feat], distance)
+    rank = np.argsort(dist.ravel())
+    
+    labels = dataset.labels_train[rank[:n]]
+    counter = Counter(labels)
+    percentage_dict = dict([(i, counter[i] / len(labels)) for i in (0,1)])
+    
+    return percentage_dict[1]
 
 
     
@@ -65,22 +98,3 @@ def show_image(idxs, data, titles):
         ax.axis('off')
     plt.show()
         
-def get_separated(y,y_pred):
-    dictionary = dict([])
-    # ma byt pozitivny a aj je predikovany ako pozitivny
-    dictionary['tp'] = np.where([x==y and x == 1 for (x,y) in zip(y,y_pred)])[0]
-    # ma byt pozitivny je predikovany ako negativny
-    dictionary['fn'] = np.where([x!=y and x == 1 for (x,y) in zip(y,y_pred)])[0]
-    # ma byt negativny a aj je predikovany ako negativny
-    dictionary['tn'] = np.where([x==y and x == 0 for (x,y) in zip(y,y_pred)])[0]
-    # ma byt negativny je predikovany ako pozitivny
-    dictionary['fp'] = np.where([x!=y and x == 0 for (x,y) in zip(y,y_pred)])[0]
-    return dictionary
-
-def show_most_similar(train_feat, search_feat, dataset,idx = 0,n = 10):
-    dist = cdist(train_feat, [search_feat[idx]], 'euclidean')
-    rank = np.argsort(dist.ravel())
-    labels = dataset.labels_train[rank[:n]]
-    plt.title(str(dataset.labels_train[idx]))
-    plt.imshow(dataset.images_test[idx,:,:,0],cmap = 'gray')
-    show_image(rank[:n],dataset.images_train,dataset.labels_train)
