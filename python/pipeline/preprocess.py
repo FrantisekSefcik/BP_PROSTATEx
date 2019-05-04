@@ -4,7 +4,6 @@ import SimpleITK as sitk
 # from downloaddata import fetch_data as fdata
 from extensies import preprocessing as my
 from extensies import normalization
-
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,12 +12,13 @@ import os
 import sys
 
 
+# Define parameters of preprocessing
 root_path = '../../data/PROSTATEx'
 path_to_data = '../../data/'
-modality = 'ktrans'
-new_spacing = (1,1,1)
-orientation = 's'
-patch_size = (20,20,1)
+modality = 'ktrans' 
+new_spacing = (0.5,0.5,0.5)
+orientation = 't'
+patch_size = (40,40,1)
 
 target_path = os.path.join(path_to_data,modality,orientation, 
                             str(patch_size[0]) + 'x' + str(patch_size[1]) + 'x' + str(patch_size[2]))
@@ -47,10 +47,12 @@ if __name__ == "__main__":
     for idx,(_,row) in enumerate(findings.iterrows()):
         print(row['ProxID'])
 
+        # Load image by modality
         if modality == 'ktrans':
             path_to_image = my.get_ktrans_path(row['ProxID'],path_to_data)
             image = sitk.ReadImage(path_to_image)
         else:
+            #
             path_to_image = my.get_path(row['ProxID'], modality, root_path)
             fixed_series_filenames = sitk.ImageSeriesReader_GetGDCMSeriesFileNames(path_to_image)
             image = sitk.ReadImage(fixed_series_filenames)
@@ -60,23 +62,25 @@ if __name__ == "__main__":
         normalizer.fit(sitk.GetArrayFromImage(image))
         # resample image to same spacing in all directions
         image = my.resample_image_to_spacing(image, new_spacing, sitk.sitkLinear)
-               
-        # extract region of interest
+        
+        # get center of lesion from dataset       
         center = [float(x) for x in row['pos'].split()] 
+        # extract region of interest
         for i,offset in enumerate(offsets):
             volume  = my.get_patch_from_image(image, patch_size, center, orientation)
             # normalise data
+            print(volume.dtype)
             volume = normalizer.normalise(volume)
             
-            #save image
+            # define informations about image
             file_name = row['ProxID']+'_'+str(index)+'_'+row['zone']+'.nii'
             new_df.loc[index] = row[['ProxID','fid','zone','ClinSig']]
             new_df.loc[index,'name'] = file_name
             new_df.loc[index,'ID'] = idx
             new_df.loc[index,'normalization'] = normalizer.name
-        
+            # save image to file
             my.save_image(volume, os.path.join(target_path,file_name))
 
             index += 1
-    
+    #save informations about images to the directory
     new_df.to_csv(os.path.join(target_path,'info.csv'))
