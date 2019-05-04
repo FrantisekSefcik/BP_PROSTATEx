@@ -25,38 +25,32 @@ from functools import reduce
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('batch_size', 256, 'Batch size.')
-flags.DEFINE_integer('train_iter', 200, 'Total training iter')
+flags.DEFINE_integer('train_iter', 1400, 'Total training iter')
 flags.DEFINE_integer('step', 50, 'Save after ... iteration')
-flags.DEFINE_string('model', 'xmass', 'model to run')
 flags.DEFINE_string('path_to_data', '../../data/', 'Path to data')
-
-modalities = ['adc/a/20x20x1','t2tsetra/a/20x20x1']
-augmentation = False
-
-
-
+modalities= ['adc/t/20x20x1','cbval/t/20x20x1','ktrans/t/20x20x1']
+augmentation = True
 
 if __name__ == "__main__":
-
+	# load data and combine them if more than 1 modaliy 
 	if len(modalities) > 1:
 		loader = DataLoader(FLAGS.path_to_data,modalities)
 		loader.load_data()
 		loader.combine_channels(modalities)
-		kfold = loader.k_fold(subdir = 'combined',num = 3)
+		kfold = loader.k_fold(subdir = 'combined',num = 5)
 		data_shape = loader.get_shape('combined')
-
-
 	else:
 		loader = DataLoader(FLAGS.path_to_data,modalities)
 		loader.load_data()
-		kfold = loader.k_fold(subdir = modalities[0],num = 3)
+		kfold = loader.k_fold(subdir = modalities[0],num = 5)
 		data_shape = loader.get_shape(modalities[0])
-	
 
-	# Setup network
 	epoch_accuracy = {}
 	kfold_id = ps.generate_index()
+	
+	# Setup network
 	model = xmas_model
+	model_name = "xmas"
 	placeholder_shape = [None] + list(data_shape[1:])
 
 	left = tf.placeholder(tf.float32, placeholder_shape, name='left')
@@ -70,14 +64,13 @@ if __name__ == "__main__":
 	loss = contrastive_loss( left_output, right_output,label_float, margin)
 	# -- Setup network --
 
-
 	for X_train,X_test,y_train,y_test in kfold:
-
+		# read all records from file and create one for this model
 		network_name,size = ps.generate_name(modalities)
 		df = pd.read_csv('records.csv',index_col=0)
 		row = pd.DataFrame(columns = df.columns)
 		row.loc[0,'iterations'] = FLAGS.train_iter
-		row.loc[0,'model'] = FLAGS.model
+		row.loc[0,'model'] = model_name
 		row.loc[0,'modality'] = modalities
 		row.loc[0,'size'] = size
 		row.loc[0,'name'] = network_name
@@ -85,19 +78,15 @@ if __name__ == "__main__":
 		row.loc[0,'normalization'] = 'ScaleNormalization'
 		row.loc[0,'kfold_id'] = kfold_id
 
+		# initialize Dataset object for training
 		dataset = Dataset()
 		dataset.images_train = X_train
 		dataset.images_test = X_test
 		dataset.labels_train = y_train
 		dataset.labels_test = y_test
-
-		row.loc[0,'num_of_data'] = len(dataset.images_train) + len(dataset.images_test)
-		print('Shape of images: {},  Shape of labels: {}'.format(X_train.shape, y_train.shape))
-
-
 		## AUGMNETATION
 		if augmentation:
-			augmentor = aug.ClassicAugmentor(X_train)
+			augmentor = aug.Elastic2Augmentor(X_train)
 			row.loc[0,'augmentation'] = augmentor.name
 		else:
 			augmentor = False
@@ -105,13 +94,15 @@ if __name__ == "__main__":
 
 		next_batch = dataset.get_siamese_batch
 
+
+		row.loc[0,'num_of_data'] = len(dataset.images_train) + len(dataset.images_test)
+		print('Shape of images: {},  Shape of labels: {}'.format(X_train.shape, y_train.shape))
+
+		# plots and arrays for training visaulizations
 		plotter = plotting.DynamicPlot()
 		plotter.on_launch(0,FLAGS.train_iter)
-
 		plotter2 = plotting.DynamicPlot()
 		plotter2.on_launch(0,FLAGS.train_iter)
-		
-
 		batch_train_losses = batch_test_losses = []
 		accuracy_train = accuracy_test = []
 		loss_train = loss_test = []
