@@ -152,8 +152,7 @@ def get_ktrans_path(patient, root_path = ''):
     return os.path.join(path_to_image,image_name)  
 
 
-def get_patch_from_image(image = None, size = None, center = None, orientation = 't',offset = [0,0,0]):
-     
+def get_patch_from_image(image = None, size = None, center = None, orientation = 't',offset = [0,0,0]):   
     # change shape by orientation  
     center = np.add(center, offset)  
     if orientation == 's':
@@ -164,7 +163,6 @@ def get_patch_from_image(image = None, size = None, center = None, orientation =
         pass
     else:
         raise Exception('Wrong orientation type! Chose from this tree: t,s,a')
-
     #transform physical coordinates to pixel coordinates    
     center_idxs = np.array(image.TransformPhysicalPointToContinuousIndex(center)) + 0.5
     vol = sitk.GetArrayFromImage(image)
@@ -176,7 +174,6 @@ def get_patch_from_image(image = None, size = None, center = None, orientation =
     tresholds = list(treshold + 1 >= ma and 0 <= mi for treshold,(ma,mi) in zip(image_size, boundaries))   
     if False in tresholds:  
         raise Exception('Boundaries out of image!')
-    
     # reverse boundaries because vol has reversed axes
     boundaries = list(reversed(boundaries))
     # get pixels in boundaries
@@ -189,12 +186,9 @@ def get_patch_from_image(image = None, size = None, center = None, orientation =
         patch = np.swapaxes(patch,0,1)
         patch = np.swapaxes(patch,0,2)
         patch = np.flip(np.flip(patch,2),0)
-    
     # when we took 2d image then transform dimension
     if 1 in size:
         patch = patch[0]
-        
-    
     return patch
     
     
