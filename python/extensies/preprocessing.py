@@ -143,7 +143,7 @@ def get_path(patient,modality = 't2w', root_path = ''):
     # list all directories that contain dicom series
 
     final_dirs = list(filter(lambda x: re.search(modality, x.lower() ),sorted(os.listdir(study_paths[0]))))
-
+    print(final_dirs[0])
     return os.path.join(study_paths[0],final_dirs[0])
 
 def get_ktrans_path(patient, root_path = ''):
@@ -153,8 +153,8 @@ def get_ktrans_path(patient, root_path = ''):
 
 
 def get_patch_from_image(image = None, size = None, center = None, orientation = 't',offset = [0,0,0]):
-      
-
+     
+    # change shape by orientation  
     center = np.add(center, offset)  
     if orientation == 's':
         size = (size[0],size[2],size[1])
@@ -165,27 +165,23 @@ def get_patch_from_image(image = None, size = None, center = None, orientation =
     else:
         raise Exception('Wrong orientation type! Chose from this tree: t,s,a')
 
-
-       
+    #transform physical coordinates to pixel coordinates    
     center_idxs = np.array(image.TransformPhysicalPointToContinuousIndex(center)) + 0.5
     vol = sitk.GetArrayFromImage(image)
     image_size = image.GetSize()
-    
+    # count boundaries of new image, if boundaries are out of then Exception  
     max_axis = (int(round(idx + lenght / 2)) for idx,lenght in zip(center_idxs,size))
     min_axis = (int(round(idx - lenght / 2)) for idx,lenght in zip(center_idxs,size))
-    
     boundaries = list(zip(max_axis,min_axis))
-    
-    tresholds = list(treshold + 1 >= ma and 0 <= mi for treshold,(ma,mi) in zip(image_size, boundaries))
-    
+    tresholds = list(treshold + 1 >= ma and 0 <= mi for treshold,(ma,mi) in zip(image_size, boundaries))   
     if False in tresholds:  
         raise Exception('Boundaries out of image!')
     
-    #reverse boundaries because vol has reversed axes
+    # reverse boundaries because vol has reversed axes
     boundaries = list(reversed(boundaries))
-    
+    # get pixels in boundaries
     patch = vol[boundaries[0][1]:boundaries[0][0] ,boundaries[1][1]:boundaries[1][0],boundaries[2][1]:boundaries[2][0]]
-    #transform arrays for different orientations to shape for image with shape X/Y/Z    
+    # transform arrays for different orientations to shape for image with shape X/Y/Z    
     if orientation == 's':
         patch = np.flip(patch,1)
         patch = np.swapaxes(patch,0,1)
@@ -205,7 +201,7 @@ def get_patch_from_image(image = None, size = None, center = None, orientation =
 def resample_image_to_spacing(image,spacing,interpolator,report = False):
     #compute new size of image
     
-    phys_size  =   [ org_spacing*(org_size - 1) for org_spacing,org_size in zip(image.GetSpacing(),image.GetSize())]
+    phys_size  =  [ org_spacing*(org_size - 1) for org_spacing,org_size in zip(image.GetSpacing(),image.GetSize())]
     new_size = [ int(round(phys / space)) + 1 for phys,space in zip(phys_size, spacing)]
     
     
