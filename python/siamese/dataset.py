@@ -11,6 +11,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
 
 class Dataset(object):
+    """ class Dataset represent class to store test and train 
+    data for training. Also have method 'get_siamese_batch' that 
+    return N images pairs with label of similarity.
+    Method 'test_oneshot', creates one_shot scenario for train model
+    """
     images_train = np.array([])
     images_test = np.array([])
     labels_train = np.array([])
@@ -47,6 +52,15 @@ class Dataset(object):
             return self._get_siamese_dissimilar_pair(source)
 
     def get_siamese_batch(self, n, source = 'train',augmentor = False):
+        """
+        Args:
+        n(int): number of images pairs in batch
+        source(str): source of data, eather train, test or valid
+        augmentor(Augmentation Object): class of augmentor defined at extensies/augmentation
+        
+        Return:
+        np.arrays of images and labels
+        """
         
         if not self.updated:
             self._update()
@@ -124,8 +138,49 @@ class Dataset(object):
                                   'test' : {label: np.flatnonzero(self.labels_test == label) for label in self.unique_label}}
         self.updated = True
         
+    def get_batch(self, n ,augmentor = False):
+        """
+        Args:
+        n(int): number of images pairs in batch
+        source(str): source of data, eather train, test or valid
+        augmentor(Augmentation Object): class of augmentor defined at extensies/augmentation
+        
+        Return:
+        np.arrays of images and labels
+        """
+        
+        if not self.updated:
+            self._update()
+        
+        images, labels = [],[]
+        
+        indecies = np.random.choice(len(self.images_train), n)
+        
+        for idx in indecies:
+            if augmentor:
+                images.append(augmentor.augment_image(self.images_train[idx]))
+            else:
+                images.append(self.images_train[idx])
+            labels.append(self.labels_train[idx])
+        
+            
+        return np.array(images), np.array(labels)
+        
+        
         
 class DataLoader(object):
+    
+    """ class DataLoder represent class to read all images in different modalities
+    from folder.
+    Method 'get_train_test' return test and train set from loaded data.
+    Method 'combine_channels' can combine sets of images to more channels images.
+    Method 'get_kfold' return generator for kfold cross validation
+    
+    __init__():
+    Args:
+    path_to_data(str): root path for data
+    subdirs_paths(list): name of folders from read images
+    """
     
     def __init__(self,path_to_data = '.', subdirs_paths = []):
         self.path_to_data = path_to_data
@@ -140,6 +195,11 @@ class DataLoader(object):
         
     def load_data(self,subdirs_paths = None):
         
+        """
+        Args:
+        subdirs_paths(list): name of folders to read images from them
+        """
+        
         if subdirs_paths:
             self.subdirs = self.subdirs.union(subdirs_paths)
         
@@ -151,8 +211,13 @@ class DataLoader(object):
                 sitk.ReadImage(os.path.join(self.path_to_data,path,name), sitk.sitkFloat32)) for name  in self.df_info[path]['name']])
             # reshape images
             shape = self.images_array[path].shape
-            print(self.images_array[path][0].shape)
-            self.images_array[path] = self.images_array[path].reshape(-1,shape[1],shape[2],1)
+            shape = shape[::-1]
+            if len(shape) > 3:
+                self.images_array[path] = self.images_array[path].reshape(-1,shape[0],shape[1],shape[2],1)
+            else:
+                self.images_array[path] = self.images_array[path].reshape(-1,shape[0],shape[1],1)
+
+            
             # load labels
             self.labels_array[path]  = np.array([int(x) for x in self.df_info[path]['ClinSig']])
         
@@ -178,6 +243,17 @@ class DataLoader(object):
             return self.images_array[subdir][idx], self.labels_array[subdir][idx]
 
     def get_train_test(self,subdir,test_size = 0.3,zones = ['PZ','TZ','AS']):
+        
+        """
+        Args:
+        subdir(str): name of folder with images
+        test_size(float): percentage of test data 
+        zones(list): zones of prostate
+        
+        Return:
+        np.array of train_images, test_images, train_labels, test_labels
+        """
+        
         if(subdir == 'combined'):
             df = next(iter(self.df_info.values()))
         else:
@@ -192,6 +268,18 @@ class DataLoader(object):
         return self.images_array[subdir][idx_train], self.images_array[subdir][idx_test], self.labels_array[subdir][idx_train], self.labels_array[subdir][idx_test]
     
     def combine_channels(self,subdirs_to_combine):
+        
+        """
+        
+        Args:
+        subdirs(list of str): name of folders with images to combine
+        
+        Combined images are stored as 'combined', in next calls of 
+        k_fold and get_train_test methods set argument subdir as combined 
+        
+        Return:
+        np.array of train_images, test_images, train_labels, test_labels
+        """
         
         if any(sub not in self.subdirs for sub in subdirs_to_combine):
             raise Exception('Paths have not been leaded!')
@@ -212,6 +300,16 @@ class DataLoader(object):
         return concated_image, self.labels_array[subdirs_to_combine[0]]
 
     def k_fold(self,subdir,num=5,zones = ['PZ','TZ','AS']):
+        
+        """
+        Args:
+        subdir(str): name of folder with images
+        num(int): number of folds
+        zones(list): zones of prostate
+        
+        Return:
+        np.array of train_images, test_images, train_labels, test_labels
+        """
 
         if(subdir == 'combined'):
             df = next(iter(self.df_info.values()))
