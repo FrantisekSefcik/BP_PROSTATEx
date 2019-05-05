@@ -21,14 +21,14 @@ from extensies import metrics as my_metrics
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('batch_size', 256, 'Batch size.')
-flags.DEFINE_integer('train_iter', 1000, 'Total training iter')
+flags.DEFINE_integer('train_iter', 2000, 'Total training iter')
 flags.DEFINE_integer('step', 50, 'Save after ... iteration')
 flags.DEFINE_string('model', 'xmass', 'model to run')
 flags.DEFINE_string('path_to_data', '../../data/', 'Path to data')
 
 
-modalities = ['adc/t/40x40x1']
-augmentation = False
+modalities = ['adc/t/20x20x1','cbval/t/20x20x1','ktrans/t/20x20x1']
+augmentation = True
 
 network_name,size = ps.generate_name(modalities)
 df = pd.read_csv('records.csv',index_col=0)
@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
 #   train_step = tf.train.MomentumOptimizer(0.0001, 0.99, use_nesterov=True).minimize(loss, global_step=global_step)
 
-	train_step = tf.train.AdamOptimizer(0.000001).minimize(loss, global_step=global_step)
+	train_step = tf.train.AdamOptimizer(0.00001).minimize(loss, global_step=global_step)
 
 
 	# Start Training
@@ -201,7 +201,7 @@ if __name__ == "__main__":
             				
 			
 		plotter.on_finish()	
-		# saver.save(sess, "model/"+network_name+".ckpt")
+		saver.save(sess, "model/"+network_name+".ckpt")
 
-		# df = df.append(row, ignore_index = True)
-		# df.to_csv('records.csv')
+		df = df.append(row, ignore_index = True)
+		df.to_csv('records.csv')

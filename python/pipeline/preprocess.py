@@ -30,7 +30,7 @@ offsets = [[0,0,0]]
 
 if __name__ == "__main__":
     
-    
+    # read files with informations about findings and MRI images
     df_images = pd.read_csv(path_to_data + 'info/ProstateX-Images-Train.csv')
     df_findings = pd.read_csv(path_to_data + 'info/ProstateX-Findings-Train.csv')
     

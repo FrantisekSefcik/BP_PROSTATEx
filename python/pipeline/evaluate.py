@@ -4,15 +4,13 @@ from siamese.dataset import Dataset
 from siamese.dataset import DataLoader
 from siamese.model import *
 from extensies import metrics as my_metrics
-
-from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
 from sklearn import metrics
-from sklearn.metrics import classification_report
 from extensies import augmentation as aug
 import ast
 
+# read all models from records and select last one
 df = pd.read_csv('records.csv',index_col=0)
 idx = df.tail(1).index[0] 
 
@@ -20,6 +18,7 @@ model_name = df.iloc[idx]['name']
 modalities = df.iloc[idx]['modality']
 modalities = ast.literal_eval(modalities)
 print(modalities)
+# loda data for model
 if len(modalities)>1:
     print('combined')
     loader = DataLoader('../../data/',modalities)
@@ -33,18 +32,7 @@ else:
     X_train, X_test, y_train, y_test = loader.get_train_test(modalities[0])
 
 print('Model name: ' ,model_name)
-
-
-# lbp = aug.LocalBinaryPattern(8,1,'uniform')
-# X_train = lbp.transform(X_train)
-# X_test = lbp.transform(X_test)
-
-# (X_train,y_train),(X_test,y_test) = tf.keras.datasets.fashion_mnist.load_data()
-# X_train = X_train.reshape(-1,28,28,1)
-# X_test = X_test.reshape(-1,28,28,1)
-# X_train = X_train / 255
-# X_test = X_test / 255
-
+# initialize dataset
 dataset = Dataset()
 dataset.images_train = X_train
 dataset.images_test = X_test
@@ -74,7 +62,7 @@ with tf.Session() as sess:
     
 
 
-
+# get prediction by metrics
 y_pred = []
 y_pred_t = []
 y_pred_w = []
@@ -84,7 +72,7 @@ for _,feat in enumerate(search_feat):
     y_pred_t.append(my_metrics.treshold_predict(train_feat,feat,dataset,0.4,10))
     y_pred_w.append(my_metrics.weighted_predict(train_feat,feat,dataset,0.4,10))
 
-
+# evaluate predicton print and write to file
 acc = accuracy_score(dataset.labels_test,y_pred)
 auc = metrics.roc_auc_score(dataset.labels_test,y_pred)
 
