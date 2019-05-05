@@ -1,29 +1,9 @@
-import Augmentor as aug
 from imgaug import augmenters as iaa
 import random
 import numpy as np 
 import skimage.feature as ft
 import albumentations
 
-
-
-class Augmentor(object):
-
-	def __init__(self,images):
-		w,h,_ = images[0].shape
-		self.p = aug.Pipeline()
-		self.p.random_distortion(1,5,5,3)
-		self.p.flip_left_right(probability=0.3)
-		self.p.flip_top_bottom(probability=0.3)
-		# self.p.crop_random(probability=0.3, percentage_area=0.95)
-		# self.p.resize(probability=1.0, width=w, height=h)
-		self.name = 'Elastic'
-
-	def generate_images(self,images,labels,num):
-
-		g = self.p.keras_generator_from_array(images,labels , batch_size=num,scaled = False)
-
-		return next(g)
 
 
 class ElasticAugmentor(object):
@@ -83,7 +63,6 @@ class RigidAugmentor(object):
 		y_arr = []
 
 		return self.seq.augment_images(images),labels
-
 		# for x in range(num):
 		# 	random_image_index = random.randint(0, lenght -1)
 		# 	img = self.seq.augment_image(images[random_image_index])
@@ -92,7 +71,7 @@ class RigidAugmentor(object):
 
 		# return np.array(X_arr),np.array(y_arr)
 
-
+# Class for loval binary pathern
 class LocalBinaryPattern(object):
 
 	def __init__(self,P=8,R=1,method = 'uniform'):
@@ -109,18 +88,18 @@ class LocalBinaryPattern(object):
 
 		return np.array(images).reshape(shape)
 
-
+# Rigid deformation with horizontal flip, rotation, shifting and scaling
 class ClassicAugmentor(object):
 
 	def __init__(self,images):
 		self.seq= albumentations.Compose([
 			        albumentations.HorizontalFlip(p=0.5),
 			        albumentations.RandomRotate90(p = 1),
-			        albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.05, rotate_limit=20, p=1)
-			    ], p=1)
+			        albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.05, rotate_limit=20, p=0.3)
+			     ], p=1)
 
 		self.name = 'Rigid'
-
+	# generate numbers of images from original images 
 	def generate_images(self,images,labels,num):
 		lenght = len(images)
 
@@ -134,11 +113,12 @@ class ClassicAugmentor(object):
 			y_arr.append(labels[random_image_index])
 
 		return np.array(X_arr),np.array(y_arr)
-
+	# function to use in Dataset object method get_siamese_batch
 	def augment_image(self,image):
 
 		return self.seq(image = image)['image']
 
+# Elastic deformation + fliping and rotation
 class Elastic2Augmentor(object):
 
 	def __init__(self,images):
@@ -165,7 +145,7 @@ class Elastic2Augmentor(object):
 			y_arr.append(labels[random_image_index])
 
 		return np.array(X_arr),np.array(y_arr)
-
+	# function to use in Dataset object method get_siamese_batch
 	def augment_image(self,image):
 
 		return self.seq(image = image)['image']

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 
+# classes to help plotting training process
 
 class DynamicPlot():
     #Suppose we know the x range

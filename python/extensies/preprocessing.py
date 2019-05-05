@@ -214,6 +214,7 @@ def resample_image_to_spacing(image,spacing,interpolator,report = False):
     
     return newimage
 
+# function to generate new name for SCNN model
 def generate_name(modalities):
     words = [x.split('/') for x in modalities]
     words_mod = [x[0] for x in words][::-1]
@@ -228,6 +229,7 @@ def generate_name(modalities):
 
     return name, words[0][2]
 
+# function to generate index for kfold
 def generate_index():
 
     return random.randint(10000, 99999)

@@ -72,7 +72,7 @@ def weighted_predict(train_feat, search_feat, dataset,treshold = 0.5,n = 10, dis
     else:
         return 0
     
-
+# function to get ratio of positives in top similar
 def percent_predict(train_feat, search_feat, dataset,n = 10, distance = 'cosine'):
     
     dist = cdist(train_feat, [search_feat], distance)
@@ -84,8 +84,7 @@ def percent_predict(train_feat, search_feat, dataset,n = 10, distance = 'cosine'
     
     return percentage_dict[1]
 
-
-    
+# function to visualize array of images    
 def show_image(idxs, data, titles):
     if type(idxs) != np.ndarray:
         idxs = np.array([idxs])

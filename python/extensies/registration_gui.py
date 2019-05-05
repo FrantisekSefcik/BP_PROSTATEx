@@ -2,6 +2,8 @@ import SimpleITK as sitk
 import matplotlib.pyplot as plt
 import numpy as np
 
+# this code is downloaded from https://github.com/SimpleITK/SPIE2019_COURSE
+
 #
 # Set of methods used for displaying the registration metric during the optimization. 
 #

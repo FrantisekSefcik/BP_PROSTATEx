@@ -6,6 +6,7 @@ import numpy as np
 from matplotlib.widgets import  RectangleSelector
 import matplotlib.patches as patches
 
+# this code is downloaded from https://github.com/SimpleITK/SPIE2019_COURSE
 
 class RegistrationPointDataAquisition(object):
     """

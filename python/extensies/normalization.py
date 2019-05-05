@@ -1,25 +1,16 @@
 import numpy as np
-# Matplotlib library
 import matplotlib.pyplot as plt
-# Scipy library
 from scipy.integrate import simps
-### Scipy library for Gaussian statistics
 from scipy.stats import norm
-### Scipy library for Rician statistics
 from scipy.stats import rice
-### Scipy library for curve fitting
 from scipy.optimize import curve_fit
-# Joblib library
-### Module to performed parallel processing
 from joblib import Parallel, delayed
-# Multiprocessing library
 import multiprocessing
+
+# skeleton from https://github.com/glemaitre/protoclass/blob/master/protoclass/preprocessing/normalisation.py 
+
 class ScaleNormalization(object):
-    """ Class to perform Gaussian normalisation
     
-    Notes
-    -----
-    """
 
     def __init__(self, range_min=0., range_max=1.):
         """Constructor of the GaussianNormalisation object
@@ -72,7 +63,6 @@ class ScaleNormalization(object):
     
         """
 
-        
         # Get the initial parameter for the given data
         self.__max = np.max(x)
         self.__min = np.min(x)
@@ -113,12 +103,7 @@ class ScaleNormalization(object):
         return x * (self.__sigma * self.__norm_factor) + (self._mu * self.__norm_factor)
     
 class ZScoreNormalization(object):
-    """ Class to perform Gaussian normalisation
-    
-    Notes
-    -----
-    """
-
+   
     def __init__(self, norm_factor=1., mu=0., sigma=1.):
         """Constructor of the GaussianNormalisation object
         
@@ -586,7 +571,7 @@ class RicianNormalisation(object):
 
         return (pdf_abs, bin_edges_abs)
 
-    def fit(self, x, x_range):
+    def fit(self, x, x_range = None):
         """Function to find the best member parameters to fit 
            the class parametrisation using Levenverg-Marquardt
            curve fitting
@@ -604,6 +589,11 @@ class RicianNormalisation(object):
             Return the fitting error
     
         """
+        if x_range == None:
+            x_range = []
+            x_range.append(np.ndarray.min(x))
+            x_range.append(np.ndarray.max(x))
+    
         # Check that the value in x_range make sense
         if not ((x_range[0] <= np.min(x))&(x_range[1] >= np.max(x))):
             raise ValueError('normalisation.GaussianNormalisation: Wrong range specifications for the x.')
@@ -669,151 +659,3 @@ class RicianNormalisation(object):
 
         return ( x * (self.__sigma * self.__norm_factor) + 
                  (rice.mean(self.__v, self.__loc, self.__sigma) * self.__norm_factor) )
-
-class LinearNormalisationByParts(object):
-    """ Class to perform linear normalisation by parts
-    
-    Notes
-    -----
-    """
-
-    def __init__(self, atlas, min_perc=2., max_perc=98.):
-        """Constructor of the GaussianNormalisation object
-        
-        Parameters
-        ----------
-        atlas: array
-            Array of the mean value of landmarks dedicting from the full dataset
-            Refers to the function FindLandmarksDataset()
-        min_perc: float (default=2.)
-            Minimum percentiles to consider
-        max_perc: float (default=98.)
-            Maximum percentiles to consider
-    
-        """
-
-        self.__atlas = atlas
-        self.__percentiles = np.zeros(self.__atlas.shape)
-        self.__min_perc = min_perc
-        self.__max_perc = max_perc
-        # Find the number of landmarks to compute depending of the atlas provided to the constructor
-        self.__n_landmarks = atlas.size
-
-    def __init_from_data__(self, x):
-        """Function to initialise the class members using data
-        
-        Parameters
-        ----------
-        x: ndarray
-            Array containing the data from which the landmarks have to be extracted
-        """
-
-        from protoclass.tool.dicom_manip import __VolumePercentilesFromData__
-
-        # Compute the percentiles from the data
-        self.__percentiles = __VolumePercentilesFromData__(x, self.__n_landmarks, self.__min_perc, self.__max_perc)
-
-    def get_parameters(self):
-        """Function to get the parameter of the object
-        
-        Returns
-        -------
-        params: tuple 
-            Return a tuple with the value of the atlas to be fitted and the landmarks found for the curren volume
-    
-        """
-        
-        return (self.__atlas, self.__percentiles)
-
-    def fit(self, x):
-        """Function to find the best member parameters to make the mapping
-        
-        Parameters
-        ----------
-        x: ndarray
-            Array containing the data
-    
-        """
-
-        # Initalise the object using the data provided
-        self.__init_from_data__(x)
-
-
-    def __rescale_parts__(self, x, x_norm, org_inf, org_sup, pro_inf, pro_sup):
-        """Function to rescale for a given parts
-        
-        Parameters
-        ----------
-        x: ndarray
-            Array containing the unormalised data
-        x_norm: ndarray
-            Array containing part of the normalise data
-        org_inf: float
-            Original lower bound
-        org_sup: float
-            Original superior bound
-        pro_inf: float
-            Projected lower bound
-        pro_sup: float
-            Projected superior bound
-        Returns
-        -------
-        x_norm: ndarray 
-            Return the data x normalised for this parts
-    
-        """
-
-        # Find the index of the data which have to be normalised in this round
-        idx = np.nonzero(np.bitwise_and(x >= org_inf, x < org_sup))
-        # Apply the linear rescaling
-        x_norm[idx] = pro_inf + np.multiply((x[idx] - org_inf), np.divide(pro_sup - pro_inf, org_sup - org_inf))
-
-        return x_norm
-
-    def normalise(self, x):
-        """Function to normalise the data
-        
-        Parameters
-        ----------
-        x: ndarray
-            Array containing the unormalised data
-        x_norm: ndarray
-            Array containing part of the normalise data
-        Returns
-        -------
-        x_norm: ndarray 
-            Return the data x normalised for this parts
-    
-        """
-
-        x_norm = x.copy()
-        # We need to go through the n_landmarks - 1 parts
-        for ld in range(self.__n_landmarks - 1):
-            x_norm = self.__rescale_parts__(x, x_norm, 
-                                            self.__percentiles[ld], self.__percentiles[ld+1],
-                                            self.__atlas[ld], self.__atlas[ld+1])
-
-        return x_norm
-
-    def denormalise(self, x):
-        """Function to unormalise the data
-        
-        Parameters
-        ----------
-        x: ndarray
-            Array containing the normalised data
-        Returns
-        -------
-        x_unormalised: ndarray 
-            Return the data x unormalised
-    
-        """
-
-        x_norm = x.copy()
-        # We need to go through the n_landmarks - 1 parts
-        for ld in range(self.__n_landmarks - 1):
-            x_norm = self.__rescale_parts__(x, x_norm, 
-                                            self.__atlas[ld], self.__atlas[ld+1],
-                                            self.__percentiles[ld], self.___percentiles[ld+1])
-
-        return x_norm
