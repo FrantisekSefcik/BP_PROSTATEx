@@ -28,6 +28,7 @@ flags.DEFINE_integer('batch_size', 256, 'Batch size.')
 flags.DEFINE_integer('train_iter', 1400, 'Total training iter')
 flags.DEFINE_integer('step', 50, 'Save after ... iteration')
 flags.DEFINE_string('path_to_data', '../../data/', 'Path to data')
+# define paths to data from root path_to_data. example "../../data/adc/t/20x20x1"
 modalities= ['adc/t/20x20x1','cbval/t/20x20x1','ktrans/t/20x20x1']
 augmentation = True
 

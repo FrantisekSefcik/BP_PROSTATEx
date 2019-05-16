@@ -15,8 +15,11 @@ import sys
 # Define parameters of preprocessing
 root_path = '../../data/PROSTATEx'
 path_to_data = '../../data/'
-modality = 'ktrans' 
+# for modality define one of T2W: "t2tsetra", ADC: "adc", Bval: "cbval", Ktrans: "ktrans" 
+modality = 't2tsetra' 
+# pixel spacing in three dimensions [mm]
 new_spacing = (0.5,0.5,0.5)
+# basic orientation 't', next are 's' and 'a'
 orientation = 't'
 patch_size = (40,40,1)
 
